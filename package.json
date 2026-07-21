@@ -1,17 +1,20 @@
 {
-  "name": "sina-news",
-  "version": "1.0.0",
-  "description": "",
-  "main": "sina.js",
+  "name": "financial-news",
+  "version": "2.0.0",
+  "description": "新浪全球实时财经新闻 RSS — Next.js + ISR 自动更新",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "abort-controller": "^3.0.0",
     "feed": "^4.2.1",
-    "node-fetch": "^2.6.1"
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "overrides": {
+    "postcss": "8.5.21"
   }
 }
