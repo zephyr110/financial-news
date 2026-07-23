@@ -21,8 +21,8 @@ export default function NewsList({ items }) {
           }
         }
       `}</style>
-      {items.map((item) => (
-        <NewsCard key={item.id} item={item} index={items.indexOf(item)} />
+      {items.map((item, i) => (
+        <NewsCard key={item.id} item={item} index={i} />
       ))}
     </div>
   );

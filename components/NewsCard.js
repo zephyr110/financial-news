@@ -13,10 +13,8 @@ export default function NewsCard({ item, index }) {
 
   return (
     <Card
-      className="news-card group cursor-pointer transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm"
-      style={{
-        animationDelay,
-      }}
+      className={`group cursor-pointer transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm${index < 10 ? " news-card" : ""}`}
+      style={index < 10 ? { animationDelay } : undefined}
     >
       <CardContent className="p-4">
         <p className="text-sm leading-relaxed text-[var(--foreground)]">

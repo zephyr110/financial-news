@@ -95,7 +95,7 @@ export async function getStaticProps() {
   } catch (error) {
     console.error("Failed to fetch news:", error);
     return {
-      props: { items: [], error: error.message },
+      props: { items: [], error: "Failed to load news. Please try again later." },
       revalidate: 300,
     };
   }
