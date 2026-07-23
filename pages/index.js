@@ -66,6 +66,7 @@ export default function Home({ items, error }) {
                 新浪财经
               </a>
               {" "}·{" "}
+              订阅：{" "}
               <a
                 href="/api/rss.xml"
                 className="text-primary hover:underline"
