@@ -1,40 +1,47 @@
-import {
-  Card,
-  CardContent,
-} from "./ui/card";
+import { Card, CardContent } from "./ui/card";
+import { cn } from "@/lib/utils";
 
 export default function NewsCard({ item, index }) {
+  const isAnimated = index < 10;
+
   const time = item.create_time
-    ? new Date(item.create_time + "+08:00")
+    ? new Date(item.create_time.replace(" ", "T") + "+08:00")
     : null;
 
-  const animationDelay =
-    index < 10 ? `${index * 50}ms` : "0ms";
+  const timeLabel =
+    time && !isNaN(time.getTime())
+      ? time.toLocaleTimeString("zh-CN", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "--:--";
 
   return (
     <Card
-      className={`group cursor-pointer transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm${index < 10 ? " news-card" : ""}`}
-      style={index < 10 ? { animationDelay } : undefined}
+      className={cn(
+        "group cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm",
+        isAnimated && "news-card"
+      )}
+      style={isAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
     >
       <CardContent className="p-4">
-        <p className="text-sm leading-relaxed text-[var(--foreground)]">
+        <p className="text-sm leading-relaxed text-foreground">
           {item.rich_text}
         </p>
-        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted)]">
-          <a
-            href={item.docurl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--primary)] no-underline hover:underline tabular-nums"
-          >
-            {time && !isNaN(time.getTime())
-              ? time.toLocaleTimeString("zh-CN", {
-                  hour12: false,
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "--:--"}
-          </a>
+        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          {item.docurl ? (
+            <a
+              href={item.docurl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary no-underline hover:underline tabular-nums"
+            >
+              {timeLabel}
+            </a>
+          ) : (
+            <span className="tabular-nums">{timeLabel}</span>
+          )}
           <span>·</span>
           <span>新浪财经</span>
         </div>

@@ -4,7 +4,7 @@ export default function NewsList({ items }) {
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <ul className="space-y-3 list-none">
       <style jsx global>{`
         .news-card {
           opacity: 0;
@@ -20,10 +20,18 @@ export default function NewsList({ items }) {
             transform: translateY(0);
           }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .news-card {
+            opacity: 1;
+            animation: none;
+          }
+        }
       `}</style>
       {items.map((item, i) => (
-        <NewsCard key={item.id} item={item} index={i} />
+        <li key={item.id ?? i}>
+          <NewsCard item={item} index={i} />
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

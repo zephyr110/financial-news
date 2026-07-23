@@ -23,15 +23,15 @@ export default function Home({ items, error }) {
         />
       </Head>
 
-      <div className="min-h-screen bg-[var(--background)]">
+      <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] px-4 sm:px-6">
           {/* Header */}
           <header className="flex items-center justify-between pt-8 pb-6">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 全球实时财经新闻
               </h1>
-              <p className="mt-1 text-xs text-[var(--muted)]">
+              <p className="mt-1 text-xs text-muted-foreground">
                 新浪财经 7×24 直播 · 实时更新
               </p>
             </div>
@@ -39,41 +39,43 @@ export default function Home({ items, error }) {
           </header>
 
           {/* Divider */}
-          <hr className="border-[var(--border)] mb-6" />
+          <hr className="border-border mb-6" />
 
           {/* Error */}
           <ErrorBanner message={error} />
 
           {/* Content */}
-          {!items || items.length === 0 ? (
+          {!error && (!items || items.length === 0) ? (
             <EmptyState />
           ) : (
-            <NewsList items={items} />
+            !error && Array.isArray(items) && items.length > 0 && (
+              <NewsList items={items} />
+            )
           )}
 
           {/* Footer */}
-          <footer className="py-10 text-center text-xs text-[var(--muted)]">
+          <footer className="py-10 text-center text-xs text-muted-foreground">
             <p>
               Powered by{" "}
               <a
                 href="https://zhibo.sina.com.cn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[var(--primary)] hover:underline"
+                className="text-primary hover:underline"
               >
                 新浪财经
               </a>
               {" "}·{" "}
               <a
                 href="/api/rss.xml"
-                className="text-[var(--primary)] hover:underline"
+                className="text-primary hover:underline"
               >
                 RSS
               </a>
               {" / "}
               <a
                 href="/api/rss.json"
-                className="text-[var(--primary)] hover:underline"
+                className="text-primary hover:underline"
               >
                 JSON Feed
               </a>
@@ -92,11 +94,10 @@ export async function getStaticProps() {
       props: { items, error: null },
       revalidate: 3600,
     };
-  } catch (error) {
-    console.error("Failed to fetch news:", error);
-    return {
-      props: { items: [], error: "Failed to load news. Please try again later." },
-      revalidate: 300,
-    };
+  } catch (e) {
+    console.error("Failed to fetch news:", e);
+    // Throw to let Next.js ISR serve the last-good cached page
+    // instead of deploying an empty error page
+    throw e;
   }
 }
