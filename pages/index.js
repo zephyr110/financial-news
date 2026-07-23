@@ -56,7 +56,7 @@ export default function Home({ items, error }) {
           {/* Footer */}
           <footer className="py-10 text-center text-xs text-muted-foreground">
             <p>
-              Powered by{" "}
+              Powered by Financial News · 数据来源：{" "}
               <a
                 href="https://zhibo.sina.com.cn"
                 target="_blank"
@@ -64,21 +64,6 @@ export default function Home({ items, error }) {
                 className="text-primary hover:underline"
               >
                 新浪财经
-              </a>
-              {" "}·{" "}
-              订阅：{" "}
-              <a
-                href="/api/rss.xml"
-                className="text-primary hover:underline"
-              >
-                RSS
-              </a>
-              {" / "}
-              <a
-                href="/api/rss.json"
-                className="text-primary hover:underline"
-              >
-                JSON Feed
               </a>
             </p>
           </footer>
