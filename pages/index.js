@@ -24,7 +24,7 @@ export default function Home({ items, error }) {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[720px] px-4 sm:px-6">
+        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6">
           {/* Header */}
           <header className="flex items-center justify-between pt-8 pb-6">
             <div>
