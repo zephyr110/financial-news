@@ -4,7 +4,7 @@ export default function NewsList({ items }) {
   if (!items || items.length === 0) return null;
 
   return (
-    <ul className="space-y-3 xl:grid xl:grid-cols-2 xl:gap-3 xl:space-y-0 list-none">
+    <ul className="space-y-3 list-none">
       <style jsx global>{`
         .news-card {
           opacity: 0;
