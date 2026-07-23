@@ -93,7 +93,7 @@ export async function getStaticProps() {
     const items = await fetchNews();
     return {
       props: { items, error: null },
-      revalidate: 3600,
+      revalidate: 1800,
     };
   } catch (e) {
     console.error("Failed to fetch news:", e);
