@@ -97,8 +97,11 @@ export async function getStaticProps() {
     };
   } catch (e) {
     console.error("Failed to fetch news:", e);
-    // Throw to let Next.js ISR serve the last-good cached page
-    // instead of deploying an empty error page
-    throw e;
+    // Return empty on first build (no cache yet); ISR revalidates in 60s
+    // On subsequent revalidations, Next.js keeps serving stale cache if this throws
+    return {
+      props: { items: [], error: "暂时无法获取最新新闻，请稍后刷新页面" },
+      revalidate: 60,
+    };
   }
 }
