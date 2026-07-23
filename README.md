@@ -28,7 +28,3 @@ npm start
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
 
 无需环境变量，直接导入 Vercel 即可。
-
-## License
-
-ISC
