@@ -26,14 +26,14 @@ export default function NewsCard({ item, index }) {
       style={isAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
     >
       <CardContent className="p-4 flex gap-3">
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0 mt-0.5 font-medium">
+        <span className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground tabular-nums shrink-0 mt-0.5 font-medium">
           {index + 1}
         </span>
         <div className="min-w-0">
-        <p className="text-sm leading-relaxed text-foreground">
+        <p className="text-[13px] sm:text-sm lg:text-base leading-relaxed text-foreground">
           {item.rich_text}
         </p>
-        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
           {item.docurl ? (
             <a
               href={item.docurl}
