@@ -25,7 +25,11 @@ export default function NewsCard({ item, index }) {
       )}
       style={isAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-4 flex gap-3">
+        <span className="text-xs text-muted-foreground tabular-nums shrink-0 mt-0.5 font-medium">
+          {index + 1}
+        </span>
+        <div className="min-w-0">
         <p className="text-sm leading-relaxed text-foreground">
           {item.rich_text}
         </p>
@@ -44,6 +48,7 @@ export default function NewsCard({ item, index }) {
           )}
           <span>·</span>
           <span>新浪财经</span>
+        </div>
         </div>
       </CardContent>
     </Card>
