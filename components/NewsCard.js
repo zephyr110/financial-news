@@ -46,8 +46,6 @@ export default function NewsCard({ item, index }) {
           ) : (
             <span className="tabular-nums">{timeLabel}</span>
           )}
-          <span>·</span>
-          <span>新浪财经</span>
         </div>
         </div>
       </CardContent>
