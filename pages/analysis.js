@@ -99,8 +99,6 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             onFilterChange={setCardFilter}
           />
 
-          <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
-
           {/* Charts: 2-col grid + full-width trend */}
           {hasData && (
             <>
@@ -132,6 +130,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               )}
             </>
           )}
+
+          <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
           <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
             信号时间线 {filteredItems.length > 0 && `(${filteredItems.length})`}
