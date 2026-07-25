@@ -1,5 +1,5 @@
-import { fetchNews } from '../../lib/fetchNews';
-import { generateFeed } from '../../lib/generateFeed';
+import { fetchNews } from '../../lib/fetchNews.js';
+import { generateFeed } from '../../lib/generateFeed.js';
 
 /**
  * JSON Feed (JSON Feed v1) 端点

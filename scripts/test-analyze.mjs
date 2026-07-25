@@ -1,10 +1,11 @@
 import { analyzeUnanalyzedNews, getUsageStats } from '../lib/analyze.js';
 import { getAnalyzedNews, getAnalysisStats } from '../lib/db.js';
 
-// Ensure DEEPSEEK_API_KEY is set
-if (!process.env.DEEPSEEK_API_KEY) {
-  console.error('ERROR: DEEPSEEK_API_KEY environment variable is not set.');
-  console.error('Set it with: export DEEPSEEK_API_KEY=sk-...');
+// Ensure LLM API key is set (check primary + fallbacks)
+const apiKey = process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+if (!apiKey) {
+  console.error('ERROR: LLM API key not configured.');
+  console.error('Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
   process.exit(1);
 }
 

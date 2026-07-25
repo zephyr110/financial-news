@@ -1,4 +1,4 @@
-import { archiveNews } from '../../../lib/archive';
+import { archiveNews } from '../../../lib/archive.js';
 import { assertCronAuth } from '../../../lib/cronAuth.js';
 
 /**
