@@ -132,7 +132,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
               <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
                 <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  热词词云
+                  焦点热词
                 </h3>
                 <WordCloud items={items} />
               </div>
