@@ -15,16 +15,16 @@ export default function NewsCard({ item, index }) {
       )}
       style={isAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
     >
-      <CardContent className="p-4 flex gap-3">
-        <span className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground tabular-nums shrink-0 mt-0.5 font-medium">
+      <CardContent className="p-4 sm:p-5 flex gap-3 sm:gap-4">
+        <span className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground tabular-nums shrink-0 mt-[5px] font-medium">
           {formatTime(time)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] sm:text-sm lg:text-base leading-relaxed text-foreground">
+          <p className="text-[13px] sm:text-sm lg:text-base leading-loose text-foreground">
             {text}
           </p>
           {item.docurl && (
-            <div className="mt-1.5">
+            <div className="mt-2">
               <a
                 href={item.docurl}
                 target="_blank"

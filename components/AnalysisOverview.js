@@ -69,7 +69,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
             className={cn(
               "relative overflow-hidden rounded-xl p-3 sm:p-4 text-left transition-all duration-200",
               "bg-gradient-to-br", gradient,
-              idx === 0 ? "sm:flex-[0.85]" : "sm:flex-1",
+              idx === 0 ? "sm:flex-[1.3]" : "sm:flex-1",
               active
                 ? `ring-2 ring-offset-1 ring-offset-background ${ringColor} scale-[1.02]`
                 : "hover:shadow-lg hover:scale-[1.01]"

@@ -11,8 +11,8 @@ export default function AnalysisNewsCard({ item }) {
 
   return (
     <Card className="group cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start gap-3 sm:gap-4">
           <span className={cn(
             "inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0",
             SCORE_COLORS[item.signal_score] || SCORE_COLORS[1]
@@ -21,15 +21,15 @@ export default function AnalysisNewsCard({ item }) {
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] sm:text-sm lg:text-base leading-relaxed text-foreground font-medium">
+            <p className="text-[13px] sm:text-sm lg:text-base leading-loose text-foreground font-medium">
               {item.summary}
             </p>
 
-            <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">
+            <p className="mt-2.5 text-[11px] sm:text-xs text-muted-foreground">
               {item.content}
             </p>
 
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               <Badge className={cn("text-[11px] sm:text-xs px-1.5 py-0", CATEGORY_COLORS[item.category])}>
                 {CATEGORY_LABELS[item.category] || item.category}
               </Badge>

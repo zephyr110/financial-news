@@ -114,7 +114,7 @@ export default function NewsList({ items }) {
               </button>
 
               {!isCollapsed && (
-                <ul className="space-y-3 list-none">
+                <ul className="space-y-4 list-none">
                   {group.items.map((item, i) => (
                     <li key={item.id ?? `${group.date}-${i}`}>
                       <NewsCard item={item} index={i} />

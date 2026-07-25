@@ -1,0 +1,90 @@
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+
+const COLORS = ["#2563eb", "#e11d48", "#16a34a", "#f97316", "#7c3aed", "#ca8a04"];
+
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    fontSize: 12,
+    color: "var(--foreground)",
+  },
+  labelStyle: { color: "var(--foreground)", fontWeight: 600 },
+  itemStyle: { color: "var(--muted-foreground)" },
+};
+
+/**
+ * Multi-line trend chart — industry signal count over time (2-hour buckets).
+ * Shows which industries are gaining attention over the time window.
+ */
+export default function IndustryTrendChart({ data }) {
+  if (!data || data.length < 2) {
+    return (
+      <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
+        数据不足，需要至少 2 个时间点才能绘制趋势
+      </div>
+    );
+  }
+
+  // Discover industry keys from data (skip 'time' key)
+  const industryKeys = Object.keys(data[0]).filter(k => k !== "time");
+
+  // Show only top 5 industries by total count to avoid cluttered chart
+  const totals = new Map();
+  for (const row of data) {
+    for (const key of industryKeys) {
+      totals.set(key, (totals.get(key) || 0) + (row[key] || 0));
+    }
+  }
+  const topKeys = Array.from(totals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k]) => k);
+
+  if (topKeys.length === 0) {
+    return (
+      <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
+        暂无行业趋势数据
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={data} margin={{ top: 4, right: 8, left: -8, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis
+          dataKey="time"
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+          width={24}
+        />
+        <Tooltip {...TOOLTIP_STYLE} />
+        <Legend
+          wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }}
+        />
+        {topKeys.map((key, i) => (
+          <Line
+            key={key}
+            type="monotone"
+            dataKey={key}
+            name={key}
+            stroke={COLORS[i % COLORS.length]}
+            strokeWidth={2}
+            dot={{ r: 2 }}
+            activeDot={{ r: 4 }}
+            connectNulls
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}

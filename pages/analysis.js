@@ -3,11 +3,12 @@ import Head from "next/head";
 import AnalysisOverview from "../components/AnalysisOverview";
 import ScoreFilter from "../components/ScoreFilter";
 import IndustryBarChart from "../components/IndustryBarChart";
+import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap } from "../lib/db.js";
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend } from "../lib/db.js";
 import { safeParse } from "../lib/utils.js";
 
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
@@ -25,10 +26,11 @@ function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   return filtered;
 }
 
-export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, error: ssgError }) {
+export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, trend: ssgTrend, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [stats, setStats] = useState(ssgStats);
   const [heatmap, setHeatmap] = useState(ssgHeatmap || []);
+  const [trend, setTrend] = useState(ssgTrend || []);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
   const [cardFilter, setCardFilter] = useState(null);
@@ -44,6 +46,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       setItems(data.items || []);
       setStats(data.stats || {});
       setHeatmap(data.heatmap || []);
+      setTrend(data.trend || []);
     } catch (e) {
       if (e.name === "AbortError") return;
       console.error("Analysis refresh failed:", e);
@@ -96,22 +99,33 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
-          {/* Charts section */}
+          {/* Charts: 2-col grid + full-width trend */}
           {hasData && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="bg-card border rounded-xl p-4 sm:p-5">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  行业信号分布
-                </h3>
-                <IndustryBarChart data={heatmap} />
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="bg-card border rounded-xl p-4 sm:p-5">
+                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                    行业信号分布
+                  </h3>
+                  <IndustryBarChart data={heatmap} />
+                </div>
+                <div className="bg-card border rounded-xl p-4 sm:p-5">
+                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                    信号分类占比
+                  </h3>
+                  <CategoryDonutChart items={items} />
+                </div>
               </div>
-              <div className="bg-card border rounded-xl p-4 sm:p-5">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  信号分类占比
-                </h3>
-                <CategoryDonutChart items={items} />
-              </div>
-            </div>
+
+              {trend.length >= 2 && (
+                <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                    行业热度趋势
+                  </h3>
+                  <IndustryTrendChart data={trend} />
+                </div>
+              )}
+            </>
           )}
 
           <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
@@ -126,10 +140,11 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
 export async function getStaticProps() {
   try {
-    const [news, stats, heatmap] = await Promise.all([
+    const [news, stats, heatmap, trend] = await Promise.all([
       getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 }),
       getAnalysisStats(24),
       getIndustryHeatmap(24),
+      getIndustryTrend(24),
     ]);
     const items = news.map((item) => ({
       ...item,
@@ -142,6 +157,7 @@ export async function getStaticProps() {
         stats: stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: items || [],
         heatmap: heatmap || [],
+        trend: trend || [],
         error: null,
       },
       revalidate: 600,
@@ -153,6 +169,7 @@ export async function getStaticProps() {
         stats: { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: [],
         heatmap: [],
+        trend: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,

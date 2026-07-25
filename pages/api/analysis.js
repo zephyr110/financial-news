@@ -1,4 +1,4 @@
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap } from '../../lib/db.js';
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend } from '../../lib/db.js';
 import { safeParse } from '../../lib/utils.js';
 
 function clampInt(value, fallback, min, max) {
@@ -12,10 +12,11 @@ export default async function handler(req, res) {
     const hoursBack = clampInt(req.query.hoursBack, 24, 1, 720);
     const minScore = clampInt(req.query.minScore, 1, 1, 5);
 
-    const [news, stats, heatmap] = await Promise.all([
+    const [news, stats, heatmap, trend] = await Promise.all([
       getAnalyzedNews({ minScore, hoursBack, limit: 200 }),
       getAnalysisStats(hoursBack),
       getIndustryHeatmap(hoursBack),
+      getIndustryTrend(hoursBack),
     ]);
 
     // Parse JSON fields for the frontend
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
 
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.status(200).json({ items, stats, heatmap });
+    res.status(200).json({ items, stats, heatmap, trend });
   } catch (error) {
     console.error('Analysis API error:', error);
     res.status(500).json({ error: 'Failed to fetch analysis' });
