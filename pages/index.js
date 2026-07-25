@@ -25,7 +25,9 @@ export default function Home({ items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(
+    ssgItems && ssgItems.length > 0 ? new Date() : null
+  );
 
   // ---- pull-to-refresh (ref-based to avoid stale closures) ----
   const [pullDist, setPullDist] = useState(0);
@@ -70,13 +72,16 @@ export default function Home({ items: ssgItems, error: ssgError }) {
     }
   }, []);
 
-  // 页面加载时触发一次数据更新
+  // Only auto-refresh if SSG returned no data (cold start).
+  // When SSG already has data, skip auto-refresh to avoid flicker.
   useEffect(() => {
-    doRefresh();
+    if (!ssgItems || ssgItems.length === 0) {
+      doRefresh();
+    }
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };
-  }, [doRefresh]);
+  }, [doRefresh, ssgItems]);
 
   // ---- touch handlers ----
   const onTouchStart = useCallback((e) => {
