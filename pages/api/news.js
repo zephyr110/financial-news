@@ -1,12 +1,19 @@
-import { fetchNews } from '../../lib/fetchNews';
+import { getArchivedNews } from '../../lib/db.js';
 
 /**
- * 新闻数据 API
+ * 新闻数据 API — 最近 7 天归档（上限 500）
  * GET /api/news
  */
 export default async function handler(req, res) {
   try {
-    const items = await fetchNews();
+    const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
+    const items = rows.map((row) => ({
+      id: row.id,
+      rich_text: row.content,
+      published_at: row.published_at,
+      source: row.source,
+      title: row.title,
+    }));
 
     res.setHeader(
       'Cache-Control',

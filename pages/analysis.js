@@ -84,11 +84,6 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
             <SignalTimeline items={items} />
           </section>
 
-          <footer className="py-10 text-center text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
-            <p>
-              AI 智能分析 · Powered by Financial News
-            </p>
-          </footer>
         </div>
       </div>
     </>

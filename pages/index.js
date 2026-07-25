@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
-import { fetchNews } from "../lib/fetchNews";
+import { getArchivedNews } from "../lib/db.js";
 import NewsList from "../components/NewsList";
 import ThemeToggle from "../components/ThemeToggle";
 import ErrorBanner from "../components/ErrorBanner";
@@ -9,6 +9,16 @@ import NavTabs from "../components/NavTabs";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
+
+function mapArchiveRows(rows) {
+  return rows.map((row) => ({
+    id: row.id,
+    rich_text: row.content,
+    published_at: row.published_at,
+    source: row.source,
+    title: row.title,
+  }));
+}
 
 export default function Home({ items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
@@ -156,7 +166,7 @@ export default function Home({ items: ssgItems, error: ssgError }) {
           </span>
         </div>
 
-        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6">
+        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-10">
           {/* Header */}
           <header className="flex items-center justify-between pt-8 pb-6">
             <div>
@@ -164,7 +174,7 @@ export default function Home({ items: ssgItems, error: ssgError }) {
                 全球实时财经新闻
               </h1>
               <p className="mt-1 text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
-                新浪财经 7×24 直播 · 实时更新
+                近 7 日归档 · 按日期折叠
                 {lastUpdated && (
                   <span className="ml-2">
                     · 更新于{" "}
@@ -203,20 +213,6 @@ export default function Home({ items: ssgItems, error: ssgError }) {
           ) : (
             !error && <EmptyState />
           )}
-
-          <footer className="py-10 text-center text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
-            <p>
-              Powered by Financial News · 数据来源：{" "}
-              <a
-                href="https://zhibo.sina.com.cn"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                新浪财经
-              </a>
-            </p>
-          </footer>
         </div>
       </div>
     </>
@@ -225,9 +221,9 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 
 export async function getStaticProps() {
   try {
-    const items = await fetchNews();
+    const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
     return {
-      props: { items, error: null },
+      props: { items: mapArchiveRows(rows), error: null },
       revalidate: 1800,
     };
   } catch (e) {
