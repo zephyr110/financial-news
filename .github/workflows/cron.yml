@@ -33,3 +33,25 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
+
+  deep-analyze:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deep entity mapping
+        run: |
+          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/deep-analyze" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 300
+          echo ""
+
+  event-threads:
+    needs: deep-analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger event thread detection
+        run: |
+          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/event-threads" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 300
+          echo ""
