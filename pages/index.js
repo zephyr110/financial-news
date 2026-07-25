@@ -5,6 +5,7 @@ import NewsList from "../components/NewsList";
 import ThemeToggle from "../components/ThemeToggle";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
+import NavTabs from "../components/NavTabs";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
@@ -192,6 +193,8 @@ export default function Home({ items: ssgItems, error: ssgError }) {
           </header>
 
           <hr className="border-border mb-6" />
+
+          <NavTabs />
 
           <ErrorBanner message={error} />
 

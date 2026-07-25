@@ -3,3 +3,6 @@ dist/
 .next/
 .claude/
 docs/
+*.db
+*.db-wal
+*.db-shm
