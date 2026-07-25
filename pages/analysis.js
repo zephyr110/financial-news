@@ -5,6 +5,7 @@ import ScoreFilter from "../components/ScoreFilter";
 import IndustryBarChart from "../components/IndustryBarChart";
 import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
+import TimeRangeFilter from "../components/TimeRangeFilter";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
@@ -35,12 +36,13 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
   const [fetching, setFetching] = useState(false);
   const [cardFilter, setCardFilter] = useState(null);
   const [scoreFilter, setScoreFilter] = useState(null);
+  const [trendHours, setTrendHours] = useState(168); // default: 周
 
   const doRefresh = useCallback(async (signal) => {
     setFetching(true);
     setError(null);
     try {
-      const res = await fetch("/api/analysis?hoursBack=24", { signal });
+      const res = await fetch(`/api/analysis?hoursBack=24&trendHours=${trendHours}`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(data.items || []);
@@ -54,7 +56,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
     } finally {
       setFetching(false);
     }
-  }, []);
+  }, [trendHours]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -119,9 +121,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
               {trend.length >= 2 && (
                 <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                    行业热度趋势
-                  </h3>
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                    <h3 className="text-xs sm:text-sm font-medium text-foreground">
+                      行业热度趋势
+                    </h3>
+                    <TimeRangeFilter value={trendHours} onChange={setTrendHours} />
+                  </div>
                   <IndustryTrendChart data={trend} />
                 </div>
               )}

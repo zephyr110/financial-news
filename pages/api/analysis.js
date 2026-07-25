@@ -10,13 +10,14 @@ function clampInt(value, fallback, min, max) {
 export default async function handler(req, res) {
   try {
     const hoursBack = clampInt(req.query.hoursBack, 24, 1, 720);
+    const trendHours = clampInt(req.query.trendHours, hoursBack, 1, 8760);
     const minScore = clampInt(req.query.minScore, 1, 1, 5);
 
     const [news, stats, heatmap, trend] = await Promise.all([
       getAnalyzedNews({ minScore, hoursBack, limit: 200 }),
       getAnalysisStats(hoursBack),
       getIndustryHeatmap(hoursBack),
-      getIndustryTrend(hoursBack),
+      getIndustryTrend(trendHours),
     ]);
 
     // Parse JSON fields for the frontend
