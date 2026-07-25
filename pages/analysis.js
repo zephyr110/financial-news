@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Head from "next/head";
 import AnalysisOverview from "../components/AnalysisOverview";
 import ScoreFilter from "../components/ScoreFilter";
+import IndustryBarChart from "../components/IndustryBarChart";
+import CategoryDonutChart from "../components/CategoryDonutChart";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import { getAnalyzedNews, getAnalysisStats } from "../lib/db.js";
 import { safeParse } from "../lib/utils.js";
 
-// Apply combined filters to items array
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   let filtered = allItems;
-
   if (cardFilter === 'significant') {
     filtered = filtered.filter(item => item.signal_score >= 3);
   } else if (cardFilter === 'critical') {
@@ -19,21 +19,20 @@ function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   } else if (cardFilter === 'max') {
     filtered = filtered.filter(item => item.signal_score === maxScore);
   }
-
   if (scoreFilter) {
     filtered = filtered.filter(item => item.signal_score === scoreFilter);
   }
-
   return filtered;
 }
 
 export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [stats, setStats] = useState(ssgStats);
+  const [heatmap, setHeatmap] = useState([]);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
-  const [cardFilter, setCardFilter] = useState(null);   // null | 'significant' | 'max' | 'critical'
-  const [scoreFilter, setScoreFilter] = useState(null);  // null | 1-5
+  const [cardFilter, setCardFilter] = useState(null);
+  const [scoreFilter, setScoreFilter] = useState(null);
 
   const doRefresh = useCallback(async (signal) => {
     setFetching(true);
@@ -44,6 +43,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
       const data = await res.json();
       setItems(data.items || []);
       setStats(data.stats || {});
+      setHeatmap(data.heatmap || []);
     } catch (e) {
       if (e.name === "AbortError") return;
       console.error("Analysis refresh failed:", e);
@@ -64,6 +64,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
     [items, cardFilter, scoreFilter, stats?.max_score]
   );
 
+  const hasData = items.length > 0;
+
   return (
     <>
       <Head>
@@ -75,9 +77,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
       <SiteHeader onRefresh={() => doRefresh()} refreshing={fetching} />
 
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-10">
-          {/* Page intro */}
-          <div className="pt-8 pb-4">
+        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
+          <div className="pt-8 pb-5">
             <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
               政策 · 行业 · 公司 — AI 信号强度一目了然
             </h2>
@@ -85,16 +86,36 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
 
           <ErrorBanner message={error} />
 
-          {stats && (
-            <AnalysisOverview
-              stats={stats}
-              filter={cardFilter}
-              onFilterChange={setCardFilter}
-            />
-          )}
+          <AnalysisOverview
+            stats={stats}
+            items={items}
+            filter={cardFilter}
+            onFilterChange={setCardFilter}
+          />
 
           <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
+          {/* Charts section */}
+          {hasData && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="bg-card border rounded-xl p-4 sm:p-5">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  行业信号分布
+                </h3>
+                <IndustryBarChart data={heatmap} />
+              </div>
+              <div className="bg-card border rounded-xl p-4 sm:p-5">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  信号分类占比
+                </h3>
+                <CategoryDonutChart items={items} />
+              </div>
+            </div>
+          )}
+
+          <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+            信号时间线 {filteredItems.length > 0 && `(${filteredItems.length})`}
+          </h3>
           <SignalTimeline items={filteredItems} />
         </div>
       </div>
