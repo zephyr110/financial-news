@@ -5,7 +5,8 @@ import SignalTimeline from "../components/SignalTimeline";
 import ErrorBanner from "../components/ErrorBanner";
 import NavTabs from "../components/NavTabs";
 import { RefreshCw } from "lucide-react";
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap } from "../lib/db.js";
+import { getAnalyzedNews, getAnalysisStats } from "../lib/db.js";
+import { safeParse } from "../lib/utils.js";
 
 export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
@@ -13,16 +14,17 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
 
-  const doRefresh = useCallback(async () => {
+  const doRefresh = useCallback(async (signal) => {
     setFetching(true);
     setError(null);
     try {
-      const res = await fetch("/api/analysis?hoursBack=24");
+      const res = await fetch("/api/analysis?hoursBack=24", { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(data.items || []);
       setStats(data.stats || {});
     } catch (e) {
+      if (e.name === 'AbortError') return;
       console.error("Analysis refresh failed:", e);
       setError("数据更新失败，请稍后重试");
     } finally {
@@ -33,7 +35,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
   // Refresh on mount
   useEffect(() => {
     const controller = new AbortController();
-    doRefresh();
+    doRefresh(controller.signal);
     return () => controller.abort();
   }, [doRefresh]);
 
@@ -93,15 +95,10 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
   );
 }
 
-function safeParse(str) {
-  try { return JSON.parse(str); } catch { return []; }
-}
-
 export async function getStaticProps() {
   try {
     const news = getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 });
     const stats = getAnalysisStats(24);
-    const heatmap = getIndustryHeatmap(24);
 
     const items = news.map(item => ({
       ...item,
@@ -114,7 +111,6 @@ export async function getStaticProps() {
       props: {
         stats: stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: items || [],
-        heatmap: heatmap || [],
         error: null,
       },
       revalidate: 600,
@@ -125,7 +121,6 @@ export async function getStaticProps() {
       props: {
         stats: { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: [],
-        heatmap: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,

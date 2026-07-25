@@ -8,7 +8,8 @@ import { archiveNews } from '../../../lib/archive';
  * Set CRON_SECRET env var, call with ?token=<CRON_SECRET>
  */
 export default async function handler(req, res) {
-  // Simple auth check
+  // NOTE: If CRON_SECRET is not set, this endpoint is publicly accessible.
+  // Always set CRON_SECRET in production.
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && req.query.token !== cronSecret) {
     return res.status(401).json({ error: 'Unauthorized' });

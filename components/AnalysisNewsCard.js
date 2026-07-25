@@ -28,7 +28,7 @@ const scoreColors = {
   1: 'bg-gray-300 text-gray-600',
 };
 
-export default function AnalysisNewsCard({ item, index }) {
+export default function AnalysisNewsCard({ item }) {
   const time = item.published_at
     ? new Date(item.published_at)
     : null;
