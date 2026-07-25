@@ -1,4 +1,4 @@
-import { analyzeUnanalyzedNews } from '../../../lib/analyze';
+import { analyzeUnanalyzedNews } from '../../../lib/analyze.js';
 
 /**
  * Cron endpoint: triggers LLM analysis of unanalyzed news.
