@@ -1,10 +1,16 @@
 import { getAnalyzedNews, getAnalysisStats } from '../../lib/db.js';
 import { safeParse } from '../../lib/utils.js';
 
+function clampInt(value, fallback, min, max) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 export default async function handler(req, res) {
   try {
-    const hoursBack = req.query.hoursBack != null ? parseInt(req.query.hoursBack) : 24;
-    const minScore = req.query.minScore != null ? parseInt(req.query.minScore) : 1;
+    const hoursBack = clampInt(req.query.hoursBack, 24, 1, 720);
+    const minScore = clampInt(req.query.minScore, 1, 1, 5);
 
     const [news, stats] = await Promise.all([
       Promise.resolve(getAnalyzedNews({ minScore, hoursBack, limit: 200 })),

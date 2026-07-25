@@ -60,7 +60,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
               </p>
             </div>
             <button
-              onClick={doRefresh}
+              onClick={() => doRefresh()}
               disabled={fetching}
               className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title="刷新"

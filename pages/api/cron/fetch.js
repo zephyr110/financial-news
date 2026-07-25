@@ -1,4 +1,5 @@
 import { archiveNews } from '../../../lib/archive';
+import { assertCronAuth } from '../../../lib/cronAuth.js';
 
 /**
  * Cron endpoint: triggers news archiving from all sources.
@@ -8,12 +9,7 @@ import { archiveNews } from '../../../lib/archive';
  * Set CRON_SECRET env var, call with ?token=<CRON_SECRET>
  */
 export default async function handler(req, res) {
-  // NOTE: If CRON_SECRET is not set, this endpoint is publicly accessible.
-  // Always set CRON_SECRET in production.
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.query.token !== cronSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!assertCronAuth(req, res)) return;
 
   try {
     const counts = await archiveNews();
