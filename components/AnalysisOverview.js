@@ -56,8 +56,8 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }) => {
+    <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 mb-6">
+      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }, idx) => {
         const active = filter === key;
         const { value, sub } = values[key];
 
@@ -69,6 +69,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
             className={cn(
               "relative overflow-hidden rounded-xl p-3 sm:p-4 text-left transition-all duration-200",
               "bg-gradient-to-br", gradient,
+              idx === 0 ? "sm:flex-[0.85]" : "sm:flex-1",
               active
                 ? `ring-2 ring-offset-1 ring-offset-background ${ringColor} scale-[1.02]`
                 : "hover:shadow-lg hover:scale-[1.01]"

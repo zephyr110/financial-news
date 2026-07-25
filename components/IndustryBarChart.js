@@ -1,10 +1,25 @@
+import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    fontSize: 12,
+    color: "var(--foreground)",
+  },
+  labelStyle: { color: "var(--foreground)", fontWeight: 600 },
+  itemStyle: { color: "var(--muted-foreground)" },
+};
+
 /**
- * Horizontal bar chart — industry signal counts with avg score.
- * Styled to match shadcn/ui design tokens.
+ * Horizontal bar chart — industry signal counts.
+ * Top 8 industries, color-coded by avg score intensity.
  */
 export default function IndustryBarChart({ data }) {
+  const [hoverIndex, setHoverIndex] = useState(-1);
+
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
@@ -13,7 +28,6 @@ export default function IndustryBarChart({ data }) {
     );
   }
 
-  // Take top 8, sorted by count desc (already sorted from API)
   const chartData = data.slice(0, 8).map((d) => ({
     name: d.industry.length > 5 ? d.industry.slice(0, 5) + "…" : d.industry,
     fullName: d.industry,
@@ -27,6 +41,7 @@ export default function IndustryBarChart({ data }) {
         data={chartData}
         layout="vertical"
         margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
+        onMouseLeave={() => setHoverIndex(-1)}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
         <XAxis
@@ -44,27 +59,27 @@ export default function IndustryBarChart({ data }) {
           tickLine={false}
           width={56}
         />
-        <Tooltip
-          contentStyle={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-            fontSize: 12,
-          }}
-          formatter={(value, name) => {
-            if (name === "count") return [`${value} 条`, "信号数"];
-            if (name === "score") return [value, "均分"];
-            return [value, name];
-          }}
-          labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""}
-        />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
-          {chartData.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={`hsl(${220 + entry.score * 8}, 70%, ${55 - entry.score * 3}%)`}
-            />
-          ))}
+        <Tooltip {...TOOLTIP_STYLE} />
+        <Bar
+          dataKey="count"
+          radius={[0, 4, 4, 0]}
+          maxBarSize={20}
+          cursor="pointer"
+          onMouseEnter={(_, i) => setHoverIndex(i)}
+        >
+          {chartData.map((entry, i) => {
+            const baseHue = 220 + entry.score * 8;
+            const baseLight = 55 - entry.score * 3;
+            const isHovered = hoverIndex === i;
+            return (
+              <Cell
+                key={i}
+                fill={`hsl(${baseHue}, 70%, ${baseLight}%)`}
+                fillOpacity={hoverIndex === -1 || isHovered ? 1 : 0.4}
+                style={{ transition: "fill-opacity 200ms" }}
+              />
+            );
+          })}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
