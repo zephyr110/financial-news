@@ -2,11 +2,8 @@ name: News Archive & Analyze
 
 on:
   schedule:
-    # Every 5 minutes — minimum allowed by GitHub Actions.
-    # Public repos on free tier: NO usage penalty for schedule triggers.
-    # Runs may be delayed 3–10 min at peak (:00/:30); GitHub internally
-    # jitters schedule times to reduce congestion.
-    - cron: '*/5 * * * *'
+    # Every hour at :07 (avoid :00 peak congestion)
+    - cron: '7 * * * *'
 
   workflow_dispatch:  # manual trigger via GitHub UI
 
