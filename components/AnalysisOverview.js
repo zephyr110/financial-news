@@ -62,7 +62,7 @@ function StatBox({ icon, label, value, highlight, warn, loading, active, onClick
           {value ?? 0}
         </div>
       )}
-      <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{label}</div>
+      <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">{label}</div>
     </button>
   );
 }

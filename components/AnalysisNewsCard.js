@@ -25,22 +25,22 @@ export default function AnalysisNewsCard({ item }) {
               {item.summary}
             </p>
 
-            <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground line-clamp-2">
+            <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground">
               {item.content}
             </p>
 
             <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              <Badge className={cn("text-[10px] px-1.5 py-0", CATEGORY_COLORS[item.category])}>
+              <Badge className={cn("text-[11px] sm:text-xs px-1.5 py-0", CATEGORY_COLORS[item.category])}>
                 {CATEGORY_LABELS[item.category] || item.category}
               </Badge>
 
               {item.industries?.map((ind) => (
-                <Badge key={ind} variant="outline" className="text-[10px] px-1.5 py-0">
+                <Badge key={ind} variant="outline" className="text-[11px] sm:text-xs px-1.5 py-0">
                   {ind}
                 </Badge>
               ))}
 
-              <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
+              <span className="text-[11px] sm:text-xs text-muted-foreground ml-auto tabular-nums">
                 {dateLabel} {timeLabel}
               </span>
             </div>

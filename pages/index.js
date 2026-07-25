@@ -175,7 +175,7 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-10">
           {/* Page intro */}
-          <div className="pt-6 pb-4">
+          <div className="pt-8 pb-4">
             <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
               7×24 全球财经快讯，AI 智能筛选高价值信号
             </h2>
