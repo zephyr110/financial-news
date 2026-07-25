@@ -34,6 +34,12 @@ export default function AnalysisNewsCard({ item }) {
                 {CATEGORY_LABELS[item.category] || item.category}
               </Badge>
 
+              {item.source && (
+                <Badge variant="secondary" className="text-[10px] sm:text-[11px] px-1.5 py-0">
+                  {item.source === 'sina' ? '新浪' : item.source === 'eastmoney' ? '东财' : item.source}
+                </Badge>
+              )}
+
               {item.industries?.map((ind) => (
                 <Badge key={ind} variant="outline" className="text-[11px] sm:text-xs px-1.5 py-0">
                   {ind}

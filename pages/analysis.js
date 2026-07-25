@@ -6,11 +6,12 @@ import IndustryBarChart from "../components/IndustryBarChart";
 import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
 import WordCloud from "../components/WordCloud";
+import EventThreadList from "../components/EventThreadList";
 import TimeRangeFilter from "../components/TimeRangeFilter";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend } from "../lib/db.js";
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db.js";
 import { safeParse } from "../lib/utils.js";
 
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
@@ -28,11 +29,12 @@ function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   return filtered;
 }
 
-export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, trend: ssgTrend, error: ssgError }) {
+export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, trend: ssgTrend, threads: ssgThreads, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [stats, setStats] = useState(ssgStats);
   const [heatmap, setHeatmap] = useState(ssgHeatmap || []);
   const [trend, setTrend] = useState(ssgTrend || []);
+  const [threads, setThreads] = useState(ssgThreads || []);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
   const [cardFilter, setCardFilter] = useState(null);
@@ -50,6 +52,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       setStats(data.stats || {});
       setHeatmap(data.heatmap || []);
       setTrend(data.trend || []);
+      setThreads(data.threads || []);
     } catch (e) {
       if (e.name === "AbortError") return;
       console.error("Analysis refresh failed:", e);
@@ -139,6 +142,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             </>
           )}
 
+          <EventThreadList threads={threads} />
+
           <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
           <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
@@ -153,11 +158,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
 export async function getStaticProps() {
   try {
-    const [news, stats, heatmap, trend] = await Promise.all([
+    const [news, stats, heatmap, trend, threads] = await Promise.all([
       getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 }),
       getAnalysisStats(24),
       getIndustryHeatmap(24),
       getIndustryTrend(24),
+      getEventThreads(24),
     ]);
     const items = news.map((item) => ({
       ...item,
@@ -171,6 +177,7 @@ export async function getStaticProps() {
         items: items || [],
         heatmap: heatmap || [],
         trend: trend || [],
+        threads: threads || [],
         error: null,
       },
       revalidate: 600,
@@ -183,6 +190,7 @@ export async function getStaticProps() {
         items: [],
         heatmap: [],
         trend: [],
+        threads: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,
