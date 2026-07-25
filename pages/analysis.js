@@ -80,7 +80,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
         <meta name="description" content="AI 驱动的财经信号识别引擎 — 政策、行业、公司信号强度分析" />
       </Head>
 
-      <SiteHeader onRefresh={() => doRefresh()} refreshing={fetching} />
+      <SiteHeader onRefresh={doRefresh} refreshing={fetching} />
 
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">

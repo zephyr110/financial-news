@@ -22,8 +22,9 @@ export default function WordCloud({ items }) {
 
     const countMap = new Map();
     for (const item of items) {
-      if (!item.tags || item.tags.length === 0) continue;
+      if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) continue;
       for (const tag of item.tags) {
+        if (!tag || !tag.trim()) continue;
         countMap.set(tag, (countMap.get(tag) || 0) + 1);
       }
     }
