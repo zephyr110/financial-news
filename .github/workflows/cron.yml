@@ -2,13 +2,18 @@ name: News Archive & Analyze
 
 on:
   schedule:
-    # Every 5 minutes during CN market hours (09:00-15:00 CST = 01:00-07:00 UTC)
-    # Plus a few off-hours runs to catch overnight news
-    - cron: '*/5 1-7 * * 1-5'  # weekdays market hours
-    - cron: '*/5 0-1 * * 1-5'  # pre-market (08:00-09:00 CST)
-    - cron: '*/10 * * * *'      # every 10 min all other times (catch-all)
+    # Every 5 minutes — minimum allowed by GitHub Actions.
+    # Public repos on free tier: NO usage penalty for schedule triggers.
+    # Runs may be delayed 3–10 min at peak (:00/:30); GitHub internally
+    # jitters schedule times to reduce congestion.
+    - cron: '*/5 * * * *'
 
-  workflow_dispatch:  # manual trigger
+  workflow_dispatch:  # manual trigger via GitHub UI
+
+# Prevent overlapping runs — if previous pipeline is still running, skip
+concurrency:
+  group: cron-pipeline
+  cancel-in-progress: false
 
 jobs:
   fetch:
