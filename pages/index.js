@@ -3,10 +3,9 @@ import Head from "next/head";
 import { getArchivedNews } from "../lib/db.js";
 import { fetchNews } from "../lib/fetchNews.js";
 import NewsList from "../components/NewsList";
-import ThemeToggle from "../components/ThemeToggle";
+import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
-import NavTabs from "../components/NavTabs";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
@@ -29,14 +28,13 @@ export default function Home({ items: ssgItems, error: ssgError }) {
     ssgItems && ssgItems.length > 0 ? new Date() : null
   );
 
-  // ---- pull-to-refresh (ref-based to avoid stale closures) ----
+  // ---- pull-to-refresh ----
   const [pullDist, setPullDist] = useState(0);
   const pullDistRef = useRef(0);
   const fetchingRef = useRef(false);
   const touchY0 = useRef(0);
   const pulling = useRef(false);
 
-  // keep fetchingRef in sync so touch handlers can read it without deps
   useEffect(() => {
     fetchingRef.current = fetching;
   }, [fetching]);
@@ -45,7 +43,6 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 
   const doRefresh = useCallback(async () => {
     if (fetchingRef.current) return;
-    // abort any in-flight request from a previous unmount/remount cycle
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -72,8 +69,7 @@ export default function Home({ items: ssgItems, error: ssgError }) {
     }
   }, []);
 
-  // Only auto-refresh if SSG returned no data (cold start).
-  // When SSG already has data, skip auto-refresh to avoid flicker.
+  // Only auto-refresh if SSG returned no data (cold start)
   useEffect(() => {
     if (!ssgItems || ssgItems.length === 0) {
       doRefresh();
@@ -127,9 +123,12 @@ export default function Home({ items: ssgItems, error: ssgError }) {
   return (
     <>
       <Head>
-        <title>Financial News — 全球实时财经新闻</title>
+        <title>财经信号 — 实时快讯 · AI 信号识别</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="新浪全球实时财经新闻直播" />
+        <meta
+          name="description"
+          content="AI 驱动的财经信号识别引擎，自动筛选政策、行业、公司关键信号"
+        />
         <link
           rel="alternate"
           type="application/rss+xml"
@@ -137,6 +136,12 @@ export default function Home({ items: ssgItems, error: ssgError }) {
           href="/api/rss.xml"
         />
       </Head>
+
+      <SiteHeader
+        onRefresh={doRefresh}
+        refreshing={fetching}
+        lastUpdated={lastUpdated}
+      />
 
       <div
         onTouchStart={onTouchStart}
@@ -149,18 +154,14 @@ export default function Home({ items: ssgItems, error: ssgError }) {
         {/* Pull-to-refresh indicator */}
         <div
           className="flex items-center justify-center gap-2 overflow-hidden"
-          style={{
-            height: pullDist,
-            opacity: pullProgress,
-          }}
+          style={{ height: pullDist, opacity: pullProgress }}
         >
           <RefreshCw
             className={`h-4 w-4 text-muted-foreground ${fetching ? "animate-spin" : ""}`}
             style={{
-              transform:
-                !fetching && pullDist > 0
-                  ? `rotate(${pullProgress * 360}deg)`
-                  : undefined,
+              transform: !fetching && pullDist > 0
+                ? `rotate(${pullProgress * 360}deg)`
+                : undefined,
             }}
           />
           <span className="text-xs text-muted-foreground">
@@ -173,44 +174,22 @@ export default function Home({ items: ssgItems, error: ssgError }) {
         </div>
 
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-10">
-          {/* Header */}
-          <header className="flex items-center justify-between pt-8 pb-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-foreground">
-                全球实时财经新闻
-              </h1>
-              <p className="mt-1 text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
-                近 7 日归档 · 按日期折叠
-                {lastUpdated && (
-                  <span className="ml-2">
-                    · 更新于{" "}
-                    {lastUpdated.toLocaleTimeString("zh-CN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                )}
+          {/* Page intro */}
+          <div className="pt-6 pb-4">
+            <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
+              7×24 全球财经快讯，AI 智能筛选高价值信号
+            </h2>
+            {lastUpdated && (
+              <p className="mt-1 text-[11px] text-muted-foreground/60">
+                更新于{" "}
+                {lastUpdated.toLocaleTimeString("zh-CN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
               </p>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={doRefresh}
-                disabled={fetching}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="刷新"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`}
-                />
-              </button>
-              <ThemeToggle />
-            </div>
-          </header>
-
-          <hr className="border-border mb-6" />
-
-          <NavTabs />
+            )}
+          </div>
 
           <ErrorBanner message={error} />
 
@@ -228,19 +207,16 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 export async function getStaticProps() {
   try {
     const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
-
-    // Fallback: if DB is empty (e.g. fresh deploy), fetch live news from Sina API
     if (rows.length === 0) {
-      console.log('[index] DB empty, falling back to live Sina API...');
+      console.log("[index] DB empty, falling back to live Sina API...");
       const liveItems = await fetchNews();
       if (liveItems.length > 0) {
         return {
           props: { items: liveItems, error: null },
-          revalidate: 300, // shorter revalidation until cron populates DB
+          revalidate: 300,
         };
       }
     }
-
     return {
       props: { items: mapArchiveRows(rows), error: null },
       revalidate: 1800,
