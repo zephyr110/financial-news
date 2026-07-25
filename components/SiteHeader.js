@@ -24,16 +24,16 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-200",
+        "sticky top-0 z-50 border-b transition-all duration-200",
         scrolled
-          ? "bg-background/80 backdrop-blur-md border-b shadow-sm"
+          ? "bg-background/80 backdrop-blur-md shadow-sm"
           : "bg-background"
       )}
     >
       <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
           {/* Left: Logo + Nav Tabs */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2 shrink-0 no-underline">
               <img
                 src="/favicon.svg"
@@ -44,6 +44,8 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
                 财经信号
               </span>
             </Link>
+
+            <span className="w-px h-5 bg-border shrink-0" aria-hidden />
 
             <nav className="flex items-center gap-0.5">
               {TABS.map(({ href, label, icon: Icon }) => {
