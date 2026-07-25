@@ -89,7 +89,7 @@ export default function CategoryDonutChart({ items }) {
             }}
             labelStyle={{ color: "var(--foreground)", fontWeight: 600 }}
             itemStyle={{ color: "var(--muted-foreground)" }}
-            formatter={(value) => [`${value} 条 (${((value / total) * 100).toFixed(0)}%)`]}
+            formatter={(value) => [`${value} 条 (${((value / total) * 100).toFixed(0)}%)`, ""]}
           />
           <Bar
             dataKey="value"

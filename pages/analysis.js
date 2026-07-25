@@ -7,15 +7,15 @@ import CategoryDonutChart from "../components/CategoryDonutChart";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
-import { getAnalyzedNews, getAnalysisStats } from "../lib/db.js";
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap } from "../lib/db.js";
 import { safeParse } from "../lib/utils.js";
 
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   let filtered = allItems;
   if (cardFilter === 'significant') {
-    filtered = filtered.filter(item => item.signal_score >= 3);
+    filtered = filtered.filter(item => item.signal_score === 4);
   } else if (cardFilter === 'critical') {
-    filtered = filtered.filter(item => item.signal_score >= 4);
+    filtered = filtered.filter(item => item.signal_score === 5);
   } else if (cardFilter === 'max') {
     filtered = filtered.filter(item => item.signal_score === maxScore);
   }
@@ -25,10 +25,10 @@ function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   return filtered;
 }
 
-export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgError }) {
+export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [stats, setStats] = useState(ssgStats);
-  const [heatmap, setHeatmap] = useState([]);
+  const [heatmap, setHeatmap] = useState(ssgHeatmap || []);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
   const [cardFilter, setCardFilter] = useState(null);
@@ -89,6 +89,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
           <AnalysisOverview
             stats={stats}
             items={items}
+            loading={fetching && items.length === 0}
             filter={cardFilter}
             onFilterChange={setCardFilter}
           />
@@ -125,9 +126,10 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
 
 export async function getStaticProps() {
   try {
-    const [news, stats] = await Promise.all([
+    const [news, stats, heatmap] = await Promise.all([
       getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 }),
       getAnalysisStats(24),
+      getIndustryHeatmap(24),
     ]);
     const items = news.map((item) => ({
       ...item,
@@ -139,6 +141,7 @@ export async function getStaticProps() {
       props: {
         stats: stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: items || [],
+        heatmap: heatmap || [],
         error: null,
       },
       revalidate: 600,
@@ -149,6 +152,7 @@ export async function getStaticProps() {
       props: {
         stats: { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: [],
+        heatmap: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,

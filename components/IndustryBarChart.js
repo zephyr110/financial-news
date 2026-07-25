@@ -13,10 +13,6 @@ const TOOLTIP_STYLE = {
   itemStyle: { color: "var(--muted-foreground)" },
 };
 
-/**
- * Horizontal bar chart — industry signal counts.
- * Top 8 industries, color-coded by avg score intensity.
- */
 export default function IndustryBarChart({ data }) {
   const [hoverIndex, setHoverIndex] = useState(-1);
 
@@ -28,12 +24,15 @@ export default function IndustryBarChart({ data }) {
     );
   }
 
-  const chartData = data.slice(0, 8).map((d) => ({
-    name: d.industry.length > 5 ? d.industry.slice(0, 5) + "…" : d.industry,
-    fullName: d.industry,
-    count: d.signalCount,
-    score: d.avgScore,
-  }));
+  const chartData = data.slice(0, 8).map((d) => {
+    const name = (d.industry || "未知").slice(0, 6) + (d.industry && d.industry.length > 6 ? "…" : "");
+    return {
+      name,
+      fullName: d.industry || "未知",
+      count: d.signalCount || 0,
+      score: d.avgScore || 0,
+    };
+  });
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 36)}>
@@ -59,7 +58,14 @@ export default function IndustryBarChart({ data }) {
           tickLine={false}
           width={56}
         />
-        <Tooltip {...TOOLTIP_STYLE} />
+        <Tooltip
+          {...TOOLTIP_STYLE}
+          formatter={(value, name) => {
+            if (name === "count") return [`${value} 条`, "信号数"];
+            return [value, name];
+          }}
+          labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""}
+        />
         <Bar
           dataKey="count"
           radius={[0, 4, 4, 0]}
@@ -68,15 +74,15 @@ export default function IndustryBarChart({ data }) {
           onMouseEnter={(_, i) => setHoverIndex(i)}
         >
           {chartData.map((entry, i) => {
-            const baseHue = 220 + entry.score * 8;
-            const baseLight = 55 - entry.score * 3;
+            const score = entry.score || 0;
+            const baseHue = 220 + score * 8;
+            const baseLight = 55 - score * 3;
             const isHovered = hoverIndex === i;
             return (
               <Cell
-                key={i}
+                key={entry.fullName}
                 fill={`hsl(${baseHue}, 70%, ${baseLight}%)`}
                 fillOpacity={hoverIndex === -1 || isHovered ? 1 : 0.4}
-                style={{ transition: "fill-opacity 200ms" }}
               />
             );
           })}
