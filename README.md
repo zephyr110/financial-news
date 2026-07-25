@@ -17,10 +17,10 @@ Next.js 16 (Pages Router) · Tailwind CSS v4 · shadcn/ui · Turso (libSQL) · D
 ## 开发
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000  ·  分析面板 /analysis
-npm run build
-npm start
+pnpm install
+pnpm dev      # http://localhost:3000  ·  分析面板 /analysis
+pnpm build
+pnpm start
 ```
 
 未配置 Turso 时，本地默认使用项目根目录的 `news_archive.db` 文件。
@@ -36,7 +36,7 @@ curl "http://localhost:3000/api/cron/analyze"
 
 | 变量 | 说明 |
 |------|------|
-| `DEEPSEEK_API_KEY` | 本地 `npm run dev` / 分析管道必需 |
+| `DEEPSEEK_API_KEY` | 本地 `pnpm dev` / 分析管道必需 |
 | `CRON_SECRET` | 生产 / Vercel 必需，保护 cron 端点 |
 | `TURSO_DATABASE_URL` | 生产必需；本地可选（未设则用本地 SQLite 文件） |
 | `TURSO_AUTH_TOKEN` | 配合 Turso URL 的鉴权 token |

@@ -1,0 +1,5 @@
+# pnpm v11 settings (allowBuilds lives here, not package.json)
+allowBuilds:
+  msw: true
+  # Optional Next.js image optimizer; skip native build if it fails locally
+  sharp: false
