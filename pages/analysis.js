@@ -85,7 +85,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
           <div className="pt-8 pb-5">
             <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
-              政策 · 行业 · 公司 — AI 信号强度一目了然
+              政策 · 行业 · 公司 — AI 智能分析，一目了然
             </h2>
           </div>
 
