@@ -2,31 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import NewsCard from "./NewsCard";
 import { cn } from "@/lib/utils";
-
-function dateKeyFromItem(item) {
-  const raw = item.published_at || item.create_time;
-  if (!raw) return "unknown";
-  const d = item.published_at
-    ? new Date(item.published_at)
-    : new Date(String(item.create_time).replace(" ", "T") + "+08:00");
-  if (Number.isNaN(d.getTime())) return "unknown";
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-}
-
-function todayKey() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-}
-
-function formatDayLabel(key) {
-  if (key === "unknown") return "未知日期";
-  if (key === todayKey()) return "今天";
-  const d = new Date(`${key}T12:00:00+08:00`);
-  const week = d.toLocaleDateString("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  });
-  return `${key.slice(5).replace("-", "/")} · ${week}`;
-}
+import { dateKeyFromItem, todayKey, formatDayLabel } from "@/lib/format";
 
 function groupByDate(items) {
   const map = new Map();

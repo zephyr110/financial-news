@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import { getArchivedNews } from "../lib/db.js";
+import { fetchNews } from "../lib/fetchNews.js";
 import NewsList from "../components/NewsList";
 import ThemeToggle from "../components/ThemeToggle";
 import ErrorBanner from "../components/ErrorBanner";
@@ -222,6 +223,19 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 export async function getStaticProps() {
   try {
     const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
+
+    // Fallback: if DB is empty (e.g. fresh deploy), fetch live news from Sina API
+    if (rows.length === 0) {
+      console.log('[index] DB empty, falling back to live Sina API...');
+      const liveItems = await fetchNews();
+      if (liveItems.length > 0) {
+        return {
+          props: { items: liveItems, error: null },
+          revalidate: 300, // shorter revalidation until cron populates DB
+        };
+      }
+    }
+
     return {
       props: { items: mapArchiveRows(rows), error: null },
       revalidate: 1800,

@@ -1,0 +1,33 @@
+name: News Archive & Analyze
+
+on:
+  schedule:
+    # Every 5 minutes during CN market hours (09:00-15:00 CST = 01:00-07:00 UTC)
+    # Plus a few off-hours runs to catch overnight news
+    - cron: '*/5 1-7 * * 1-5'  # weekdays market hours
+    - cron: '*/5 0-1 * * 1-5'  # pre-market (08:00-09:00 CST)
+    - cron: '*/10 * * * *'      # every 10 min all other times (catch-all)
+
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger news fetch
+        run: |
+          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/fetch" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 120
+          echo ""
+
+  analyze:
+    needs: fetch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger LLM analysis
+        run: |
+          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/analyze" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 300
+          echo ""
