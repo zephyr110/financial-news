@@ -5,6 +5,7 @@ import ScoreFilter from "../components/ScoreFilter";
 import IndustryBarChart from "../components/IndustryBarChart";
 import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
+import WordCloud from "../components/WordCloud";
 import TimeRangeFilter from "../components/TimeRangeFilter";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
@@ -115,6 +116,13 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   </h3>
                   <CategoryDonutChart items={items} />
                 </div>
+              </div>
+
+              <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  热词词云
+                </h3>
+                <WordCloud items={items} />
               </div>
 
               {trend.length >= 2 && (
