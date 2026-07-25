@@ -5,6 +5,7 @@ import SignalTimeline from "../components/SignalTimeline";
 import ErrorBanner from "../components/ErrorBanner";
 import NavTabs from "../components/NavTabs";
 import { RefreshCw } from "lucide-react";
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap } from "../lib/db.js";
 
 export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
@@ -92,16 +93,28 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
   );
 }
 
+function safeParse(str) {
+  try { return JSON.parse(str); } catch { return []; }
+}
+
 export async function getStaticProps() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/analysis?hoursBack=24`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const news = getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 });
+    const stats = getAnalysisStats(24);
+    const heatmap = getIndustryHeatmap(24);
+
+    const items = news.map(item => ({
+      ...item,
+      industries: item.industries ? safeParse(item.industries) : [],
+      companies: item.companies ? safeParse(item.companies) : [],
+      tags: item.tags ? safeParse(item.tags) : [],
+    }));
+
     return {
       props: {
-        stats: data.stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
-        items: data.items || [],
+        stats: stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
+        items: items || [],
+        heatmap: heatmap || [],
         error: null,
       },
       revalidate: 600,
@@ -112,6 +125,7 @@ export async function getStaticProps() {
       props: {
         stats: { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: [],
+        heatmap: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,
