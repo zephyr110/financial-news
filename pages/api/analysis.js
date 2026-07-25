@@ -13,8 +13,8 @@ export default async function handler(req, res) {
     const minScore = clampInt(req.query.minScore, 1, 1, 5);
 
     const [news, stats] = await Promise.all([
-      Promise.resolve(getAnalyzedNews({ minScore, hoursBack, limit: 200 })),
-      Promise.resolve(getAnalysisStats(hoursBack)),
+      getAnalyzedNews({ minScore, hoursBack, limit: 200 }),
+      getAnalysisStats(hoursBack),
     ]);
 
     // Parse JSON fields for the frontend

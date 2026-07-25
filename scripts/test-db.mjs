@@ -1,10 +1,11 @@
 import { getDb, insertNews, getUnanalyzedNews, insertAnalysis, getAnalyzedNews, getAnalysisStats } from '../lib/db.js';
 
-const db = getDb();
-console.log('Tables created:', db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name));
+const db = await getDb();
+const tables = await db.execute("SELECT name FROM sqlite_master WHERE type='table'");
+console.log('Tables created:', tables.rows.map(r => r.name));
 
 // Test insert
-const id = insertNews({
+const id = await insertNews({
   source: 'test',
   source_id: 'test-001',
   title: 'Test News',
@@ -14,12 +15,12 @@ const id = insertNews({
 console.log('Inserted news id:', id);
 
 // Test unanalyzed
-const unanalyzed = getUnanalyzedNews();
+const unanalyzed = await getUnanalyzedNews();
 console.log('Unanalyzed count:', unanalyzed.length);
 
 // Test insert analysis
 if (id) {
-  insertAnalysis({
+  await insertAnalysis({
     news_id: id,
     signal_score: 4,
     category: 'industry',
@@ -34,14 +35,20 @@ if (id) {
 }
 
 // Test query
-const analyzed = getAnalyzedNews();
+const analyzed = await getAnalyzedNews();
 console.log('Analyzed count:', analyzed.length);
 
-const stats = getAnalysisStats();
+const stats = await getAnalysisStats();
 console.log('Stats:', stats);
 
 // Cleanup test data
-db.prepare('DELETE FROM analysis_result WHERE news_id IN (SELECT id FROM news_archive WHERE source = ?)').run('test');
-db.prepare('DELETE FROM news_archive WHERE source = ?').run('test');
+await db.execute({
+  sql: 'DELETE FROM analysis_result WHERE news_id IN (SELECT id FROM news_archive WHERE source = ?)',
+  args: ['test'],
+});
+await db.execute({
+  sql: 'DELETE FROM news_archive WHERE source = ?',
+  args: ['test'],
+});
 console.log('Test data cleaned up.');
 console.log('DB test PASSED.');

@@ -12,10 +12,10 @@ console.log('Running analysis test (max 2 batches)...');
 const result = await analyzeUnanalyzedNews(10, 2);
 console.log('Analysis result:', result);
 
-const stats = getAnalysisStats();
+const stats = await getAnalysisStats();
 console.log('Analysis stats:', stats);
 
-const recent = getAnalyzedNews({ limit: 5 });
+const recent = await getAnalyzedNews({ limit: 5 });
 console.log('Recent analyzed news:');
 for (const item of recent) {
   console.log(`  [${item.signal_score}] ${item.summary} (${item.category})`);

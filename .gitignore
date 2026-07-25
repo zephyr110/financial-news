@@ -6,3 +6,8 @@ docs/
 *.db
 *.db-wal
 *.db-shm
+
+# Secrets / local env (prefer shell or Keychain; never commit)
+.env
+.env.*
+!.env.example

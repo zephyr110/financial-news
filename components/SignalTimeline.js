@@ -4,7 +4,7 @@ export default function SignalTimeline({ items }) {
   if (!items || items.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground text-sm">
-        暂无信号数据。等待新闻归档和分析完成...
+        暂无信号数据，等待新闻归档和分析完成...
       </div>
     );
   }

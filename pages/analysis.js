@@ -86,7 +86,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
 
           <footer className="py-10 text-center text-[11px] sm:text-xs lg:text-sm text-muted-foreground">
             <p>
-              AI 分析仅供参考，不构成投资建议 · Powered by DeepSeek
+              AI 智能分析 · Powered by Financial News
             </p>
           </footer>
         </div>
@@ -97,8 +97,10 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgE
 
 export async function getStaticProps() {
   try {
-    const news = getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 });
-    const stats = getAnalysisStats(24);
+    const [news, stats] = await Promise.all([
+      getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 }),
+      getAnalysisStats(24),
+    ]);
 
     const items = news.map(item => ({
       ...item,
