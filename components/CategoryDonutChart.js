@@ -95,7 +95,7 @@ export default function CategoryDonutChart({ items }) {
             dataKey="value"
             radius={[0, 4, 4, 0]}
             maxBarSize={22}
-            label={({ payload }) => `${payload.value}条  ${payload.pct}%`}
+            label={({ payload }) => payload ? `${payload.value}条  ${payload.pct}%` : ""}
           >
             {chartData.map((entry, i) => (
               <Cell key={i} fill={COLORS[entry.key] || FALLBACK} />
