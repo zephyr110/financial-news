@@ -10,10 +10,10 @@ export default function SignalTimeline({ items }) {
   }
 
   return (
-    <div className="space-y-3">
-      {items.map((item, i) => (
-        <AnalysisNewsCard key={item.id} item={item} index={i} />
+    <ul className="space-y-3 list-none">
+      {items.map((item) => (
+        <li key={item.id}><AnalysisNewsCard item={item} /></li>
       ))}
-    </div>
+    </ul>
   );
 }

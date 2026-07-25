@@ -3,9 +3,10 @@ import Head from "next/head";
 import AnalysisOverview from "../components/AnalysisOverview";
 import SignalTimeline from "../components/SignalTimeline";
 import ErrorBanner from "../components/ErrorBanner";
-import { RefreshCw, BarChart3, Newspaper } from "lucide-react";
+import NavTabs from "../components/NavTabs";
+import { RefreshCw } from "lucide-react";
 
-export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ssgHeatmap, error: ssgError }) {
+export default function Analysis({ stats: ssgStats, items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [stats, setStats] = useState(ssgStats);
   const [error, setError] = useState(ssgError ?? null);
@@ -30,7 +31,9 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
   // Refresh on mount
   useEffect(() => {
+    const controller = new AbortController();
     doRefresh();
+    return () => controller.abort();
   }, [doRefresh]);
 
   return (
@@ -65,15 +68,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           <hr className="border-border mb-6" />
 
-          {/* Navigation Tabs */}
-          <div className="flex gap-1 mb-4">
-            <a href="/" className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors inline-flex items-center gap-1.5">
-              <Newspaper className="h-4 w-4" /> 实时快讯
-            </a>
-            <a href="/analysis" className="px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground inline-flex items-center gap-1.5">
-              <BarChart3 className="h-4 w-4" /> 分析面板
-            </a>
-          </div>
+          <NavTabs />
 
           <ErrorBanner message={error} />
 
@@ -107,7 +102,6 @@ export async function getStaticProps() {
       props: {
         stats: data.stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: data.items || [],
-        heatmap: data.heatmap || [],
         error: null,
       },
       revalidate: 600,
@@ -118,7 +112,6 @@ export async function getStaticProps() {
       props: {
         stats: { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
         items: [],
-        heatmap: [],
         error: "暂时无法获取分析数据，请稍后刷新",
       },
       revalidate: 60,
