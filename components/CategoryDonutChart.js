@@ -1,20 +1,30 @@
-import { BarChart, Bar, XAxis, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { CATEGORY_LABELS } from "@/lib/constants";
 
-// Consistent with card gradient colors
 const COLORS = {
-  policy:       "#e11d48", // rose
-  geopolitics:  "#f97316", // orange
-  industry:     "#2563eb", // blue
-  company:      "#16a34a", // green
-  macro:        "#7c3aed", // violet
-  market_rumor: "#ca8a04", // yellow
+  policy:       "#e11d48",
+  geopolitics:  "#f97316",
+  industry:     "#2563eb",
+  company:      "#16a34a",
+  macro:        "#7c3aed",
+  market_rumor: "#ca8a04",
 };
 const FALLBACK = "#6b7280";
 
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    fontSize: 12,
+    color: "var(--foreground)",
+  },
+  labelStyle: { color: "var(--foreground)", fontWeight: 600 },
+  itemStyle: { color: "var(--muted-foreground)" },
+};
+
 /**
- * Horizontal bar chart — category distribution of quality signals (score ≥ 3).
- * Filters out noise to show only meaningful distribution.
+ * Donut chart — category distribution of quality signals (score ≥ 3).
  */
 export default function CategoryDonutChart({ items }) {
   if (!items || items.length === 0) {
@@ -25,7 +35,6 @@ export default function CategoryDonutChart({ items }) {
     );
   }
 
-  // Only count quality signals (score >= 3, excluding noise)
   const qualityItems = items.filter(i => i.signal_score >= 3);
 
   if (qualityItems.length === 0) {
@@ -38,7 +47,6 @@ export default function CategoryDonutChart({ items }) {
 
   const total = qualityItems.length;
 
-  // Aggregate by category
   const countMap = new Map();
   for (const item of qualityItems) {
     const cat = item.category || "macro";
@@ -56,8 +64,52 @@ export default function CategoryDonutChart({ items }) {
 
   return (
     <div>
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={80}
+            paddingAngle={2}
+            dataKey="value"
+            stroke="none"
+          >
+            {chartData.map((entry, i) => (
+              <Cell key={i} fill={COLORS[entry.key] || FALLBACK} />
+            ))}
+          </Pie>
+          <Tooltip
+            {...TOOLTIP_STYLE}
+            formatter={(value) => [`${value} 条 (${((value / total) * 100).toFixed(0)}%)`]}
+          />
+          <text
+            x="50%"
+            y="50%"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-foreground"
+            style={{ fontSize: 20, fontWeight: 700 }}
+          >
+            {total}
+          </text>
+          <text
+            x="50%"
+            y="50%"
+            dy={18}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-muted-foreground"
+            style={{ fontSize: 11 }}
+          >
+            条信号
+          </text>
+        </PieChart>
+      </ResponsiveContainer>
+
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
         {chartData.map((d) => (
           <div key={d.key} className="flex items-center gap-1.5">
             <span
@@ -70,39 +122,6 @@ export default function CategoryDonutChart({ items }) {
           </div>
         ))}
       </div>
-
-      {/* Horizontal bars */}
-      <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 32)}>
-        <BarChart
-          data={chartData}
-          layout="vertical"
-          margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
-        >
-          <XAxis type="number" hide />
-          <Tooltip
-            contentStyle={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius)",
-              fontSize: 12,
-              color: "var(--foreground)",
-            }}
-            labelStyle={{ color: "var(--foreground)", fontWeight: 600 }}
-            itemStyle={{ color: "var(--muted-foreground)" }}
-            formatter={(value) => [`${value} 条 (${((value / total) * 100).toFixed(0)}%)`, ""]}
-          />
-          <Bar
-            dataKey="value"
-            radius={[0, 4, 4, 0]}
-            maxBarSize={22}
-            label={({ payload }) => payload ? `${payload.value}条  ${payload.pct}%` : ""}
-          >
-            {chartData.map((entry, i) => (
-              <Cell key={i} fill={COLORS[entry.key] || FALLBACK} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
 
       <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-1">
         仅统计 ≥3 分的高质量信号，共 {total} 条

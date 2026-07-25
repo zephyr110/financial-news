@@ -47,7 +47,7 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
 
             <span className="w-px h-5 bg-border shrink-0" aria-hidden />
 
-            <nav className="flex items-center gap-0.5">
+            <nav className="flex items-center gap-2">
               {TABS.map(({ href, label, icon: Icon }) => {
                 const active = router.pathname === href;
                 return (
@@ -57,8 +57,8 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
                     className={cn(
                       "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors",
                       active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        ? "bg-primary/15 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
                     <Icon className="h-4 w-4" />
