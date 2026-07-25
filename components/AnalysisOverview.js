@@ -1,108 +1,117 @@
-import { AlertTriangle, TrendingUp, Zap } from "lucide-react";
+import { AlertTriangle, TrendingUp, Zap, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Analysis overview — 1 hero card + 3 compact stat cards.
- * Click to filter the signal timeline below.
- */
+// --- Card definitions with distinct gradient backgrounds ---
+
+const CARDS = [
+  {
+    key: null,
+    icon: Zap,
+    label: "信号强度",
+    gradient: "from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600",
+    textColor: "text-white",
+    mutedColor: "text-blue-100/80",
+    ringColor: "ring-blue-400/40",
+  },
+  {
+    key: "critical",
+    icon: AlertTriangle,
+    label: "预警信号",
+    gradient: "from-rose-600 to-rose-500 dark:from-rose-700 dark:to-rose-600",
+    textColor: "text-white",
+    mutedColor: "text-rose-100/80",
+    ringColor: "ring-rose-400/40",
+  },
+  {
+    key: "significant",
+    icon: TrendingUp,
+    label: "重要信号",
+    gradient: "from-amber-500 to-amber-400 dark:from-amber-600 dark:to-amber-500",
+    textColor: "text-white",
+    mutedColor: "text-amber-100/80",
+    ringColor: "ring-amber-400/40",
+  },
+  {
+    key: "max",
+    icon: BarChart3,
+    label: "最高分",
+    gradient: "from-emerald-600 to-emerald-500 dark:from-emerald-700 dark:to-emerald-600",
+    textColor: "text-white",
+    mutedColor: "text-emerald-100/80",
+    ringColor: "ring-emerald-400/40",
+  },
+];
+
 export default function AnalysisOverview({ stats, items, loading, filter, onFilterChange }) {
   const total = stats?.total_signals ?? 0;
   const avgScore = total > 0 && items?.length
     ? (items.reduce((s, i) => s + i.signal_score, 0) / items.length).toFixed(1)
-    : "0.0";
-  const critical = stats?.critical_count ?? 0;
-  const significant = stats?.significant_count ?? 0;
-  const maxScore = stats?.max_score ?? 0;
+    : "—";
+
+  const values = {
+    null: { value: avgScore, sub: `共 ${total} 条信号` },
+    critical: { value: stats?.critical_count ?? 0, sub: "需立即关注" },
+    significant: { value: stats?.significant_count ?? 0, sub: "含重要变化" },
+    max: { value: stats?.max_score ?? 0, sub: "今日峰值" },
+  };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 mb-6">
-      {/* Hero card — average signal strength */}
-      <button
-        type="button"
-        onClick={() => onFilterChange?.(null)}
-        className={cn(
-          "flex-1 bg-card border rounded-xl p-4 sm:p-5 text-left transition-all duration-150",
-          !filter
-            ? "border-primary ring-1 ring-primary/30 shadow-sm"
-            : "hover:border-primary/50 hover:shadow-sm"
-        )}
-      >
-        <div className="flex items-center gap-2 text-muted-foreground mb-2">
-          <Zap className="h-4 w-4" />
-          <span className="text-[11px] sm:text-xs font-medium">今日信号强度</span>
-        </div>
-        {loading ? (
-          <div className="space-y-2">
-            <div className="h-8 w-20 rounded bg-muted animate-pulse" />
-            <div className="h-4 w-32 rounded bg-muted animate-pulse" />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl sm:text-4xl font-bold tabular-nums text-foreground">
-                {avgScore}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }) => {
+        const active = filter === key;
+        const { value, sub } = values[key];
+
+        return (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onFilterChange?.(active ? null : key)}
+            className={cn(
+              "relative overflow-hidden rounded-xl p-3 sm:p-4 text-left transition-all duration-200",
+              "bg-gradient-to-br", gradient,
+              active
+                ? `ring-2 ring-offset-1 ring-offset-background ${ringColor} scale-[1.02]`
+                : "hover:shadow-lg hover:scale-[1.01]"
+            )}
+          >
+            {/* Decorative circle behind icon */}
+            <div className={cn(
+              "absolute -top-3 -right-3 w-16 h-16 rounded-full opacity-15",
+              "bg-white dark:bg-white"
+            )} />
+
+            {/* Row 1: Icon + Label */}
+            <div className="relative flex items-center gap-1.5 mb-2">
+              <Icon className={cn("h-3.5 w-3.5", mutedColor)} />
+              <span className={cn("text-[11px] sm:text-xs font-medium", mutedColor)}>
+                {label}
               </span>
-              <span className="text-sm text-muted-foreground">/ 5</span>
             </div>
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
-              共 {total} 条信号新闻
-            </p>
-          </>
-        )}
-      </button>
 
-      {/* Compact stat cards */}
-      <div className="flex flex-row sm:flex-col gap-3 sm:w-[200px]">
-        <MiniStat
-          icon={<AlertTriangle className="h-3.5 w-3.5" />}
-          label="预警"
-          value={critical}
-          warn
-          active={filter === 'critical'}
-          onClick={() => onFilterChange?.(filter === 'critical' ? null : 'critical')}
-        />
-        <MiniStat
-          icon={<TrendingUp className="h-3.5 w-3.5" />}
-          label="重要信号"
-          value={significant}
-          highlight
-          active={filter === 'significant'}
-          onClick={() => onFilterChange?.(filter === 'significant' ? null : 'significant')}
-        />
-        <MiniStat
-          icon={<span className="font-bold text-[10px]">{maxScore}</span>}
-          label={`最高 ${maxScore} 分`}
-          active={filter === 'max'}
-          onClick={() => onFilterChange?.(filter === 'max' ? null : 'max')}
-        />
-      </div>
+            {/* Row 2: Big number */}
+            {loading ? (
+              <div className="relative">
+                <div className="h-7 w-14 rounded bg-white/20 animate-pulse" />
+              </div>
+            ) : (
+              <div className={cn(
+                "relative text-2xl sm:text-3xl font-bold tabular-nums tracking-tight mb-0.5",
+                textColor
+              )}>
+                {value}
+              </div>
+            )}
+
+            {/* Row 3: Subtitle */}
+            <div className={cn(
+              "relative text-[10px] sm:text-[11px] font-normal opacity-80",
+              mutedColor
+            )}>
+              {sub}
+            </div>
+          </button>
+        );
+      })}
     </div>
-  );
-}
-
-function MiniStat({ icon, label, value, warn, highlight, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex-1 sm:flex-none flex sm:flex-col items-center sm:items-start gap-2 sm:gap-0.5 bg-card border rounded-lg px-3 py-2.5 sm:p-3 transition-all duration-150",
-        active
-          ? "border-primary ring-1 ring-primary/30 shadow-sm"
-          : "hover:border-primary/50 hover:shadow-sm"
-      )}
-    >
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {icon}
-      </div>
-      <div className={cn(
-        "text-lg sm:text-xl font-bold tabular-nums",
-        warn ? "text-red-600 dark:text-red-400" :
-        highlight ? "text-primary" : "text-foreground"
-      )}>
-        {value ?? 0}
-      </div>
-      <div className="text-[11px] sm:text-xs text-muted-foreground">{label}</div>
-    </button>
   );
 }
