@@ -118,13 +118,6 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                 </div>
               </div>
 
-              <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  热词词云
-                </h3>
-                <WordCloud items={items} />
-              </div>
-
               {trend.length >= 2 && (
                 <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -136,6 +129,13 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   <IndustryTrendChart data={trend} />
                 </div>
               )}
+
+              <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  热词词云
+                </h3>
+                <WordCloud items={items} />
+              </div>
             </>
           )}
 

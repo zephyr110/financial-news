@@ -22,8 +22,11 @@ export default function WordCloud({ items }) {
 
     const countMap = new Map();
     for (const item of items) {
-      if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) continue;
-      for (const tag of item.tags) {
+      // Use tags if available; fall back to industries (always populated by LLM)
+      const source = (item.tags && Array.isArray(item.tags) && item.tags.length > 0)
+        ? item.tags
+        : (Array.isArray(item.industries) ? item.industries : []);
+      for (const tag of source) {
         if (!tag || !tag.trim()) continue;
         countMap.set(tag, (countMap.get(tag) || 0) + 1);
       }
