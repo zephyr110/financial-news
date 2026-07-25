@@ -5,7 +5,7 @@ import NewsList from "../components/NewsList";
 import ThemeToggle from "../components/ThemeToggle";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Newspaper, BarChart3 } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
 
@@ -192,6 +192,16 @@ export default function Home({ items: ssgItems, error: ssgError }) {
           </header>
 
           <hr className="border-border mb-6" />
+
+          {/* Navigation Tabs */}
+          <div className="flex gap-1 mb-4">
+            <a href="/" className="px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground inline-flex items-center gap-1.5">
+              <Newspaper className="h-4 w-4" /> 实时快讯
+            </a>
+            <a href="/analysis" className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors inline-flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4" /> 分析面板
+            </a>
+          </div>
 
           <ErrorBanner message={error} />
 
