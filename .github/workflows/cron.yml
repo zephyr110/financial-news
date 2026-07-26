@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Trigger news fetch
         run: |
-          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/fetch" \
+          curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/fetch" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 120
           echo ""
@@ -29,7 +29,7 @@ jobs:
     steps:
       - name: Trigger LLM analysis
         run: |
-          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/analyze" \
+          curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/analyze" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Trigger deep entity mapping
         run: |
-          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/deep-analyze" \
+          curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/deep-analyze" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Trigger event thread detection
         run: |
-          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/event-threads" \
+          curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/event-threads" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: Fetch market data + run backtest
         run: |
-          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/fetch-market" \
+          curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/fetch-market" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
