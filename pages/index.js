@@ -24,9 +24,8 @@ export default function Home({ items: ssgItems, error: ssgError }) {
   const [items, setItems] = useState(ssgItems);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(
-    ssgItems && ssgItems.length > 0 ? new Date() : null
-  );
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
   // ---- pull-to-refresh ----
   const [pullDist, setPullDist] = useState(0);
@@ -68,6 +67,14 @@ export default function Home({ items: ssgItems, error: ssgError }) {
       if (abortRef.current === controller) abortRef.current = null;
     }
   }, []);
+
+  // Set mounted flag and initial timestamp client-side only (avoid hydration mismatch)
+  useEffect(() => {
+    setMounted(true);
+    if (ssgItems && ssgItems.length > 0) {
+      setLastUpdated(new Date());
+    }
+  }, [ssgItems]);
 
   // Only auto-refresh if SSG returned no data (cold start)
   useEffect(() => {
