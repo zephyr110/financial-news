@@ -59,13 +59,15 @@ export default function IndustryTrendChart({ data }) {
           tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           axisLine={false}
           tickLine={false}
+          label={{ value: "时间", position: "insideBottomRight", offset: -4, style: { fontSize: 11, fill: "var(--muted-foreground)" } }}
         />
         <YAxis
           tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          width={24}
+          width={32}
+          label={{ value: "信号数", angle: -90, position: "insideLeft", offset: 8, style: { fontSize: 11, fill: "var(--muted-foreground)" } }}
         />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend
