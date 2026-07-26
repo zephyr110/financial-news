@@ -214,35 +214,22 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 export async function getStaticProps() {
   try {
     const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
-    const items = mapArchiveRows(rows);
+    let items = mapArchiveRows(rows);
 
-    // Supplement: if no data from today, merge live Sina data
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
-    const hasToday = items.some(item => {
-      const d = item.published_at ? new Date(item.published_at) : null;
-      return d && d.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }) === today;
-    });
-
-    if (!hasToday) {
-      console.log('[index] No today data, supplementing with live API...');
-      try {
-        const liveItems = await fetchLiveNews();
-        if (liveItems.length > 0) {
-          return {
-            props: { items: [...liveItems, ...items], error: null },
-            revalidate: 300,
-          };
-        }
-      } catch (liveErr) {
-        console.error('[index] Live supplement failed:', liveErr.message);
+    // Always supplement with live data + dedup to avoid duplicates
+    try {
+      const liveItems = await fetchLiveNews();
+      if (liveItems.length > 0) {
+        const seen = new Set<string>();
+        items = [...liveItems, ...items].filter(item => {
+          const key = (item.rich_text || '').slice(0, 80).trim();
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       }
-    }
-
-    if (rows.length === 0 && items.length === 0) {
-      return {
-        props: { items: [], error: null },
-        revalidate: 300,
-      };
+    } catch (liveErr) {
+      console.error('[index] Live supplement failed:', liveErr.message);
     }
 
     return {
