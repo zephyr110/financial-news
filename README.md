@@ -8,7 +8,7 @@ AI-powered financial news aggregation & signal analysis engine.
 
 ## What It Does
 
-- **Aggregates** real-time financial news from Sina & Eastmoney 7×24 tickers
+- **Aggregates** real-time financial news from Sina 7×24 tickers
 - **Scores** every news item (1–5) with an LLM — policy, geopolitics, industry, company, macro
 - **Visualizes** signals with charts, trend lines, word clouds, and a filterable timeline
 - **Delivers** RSS 2.0 / JSON Feed for subscription
