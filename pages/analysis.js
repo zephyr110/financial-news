@@ -8,6 +8,7 @@ import CategoryDonutChart from "../components/CategoryDonutChart";
 import WordCloud from "../components/WordCloud";
 import EventThreadList from "../components/EventThreadList";
 import TimeRangeFilter from "../components/TimeRangeFilter";
+import ClientOnly from "../components/ClientOnly";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
@@ -103,9 +104,9 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             onFilterChange={setCardFilter}
           />
 
-          {/* Charts: 2-col grid + full-width trend */}
+          {/* Charts: 2-col grid + full-width trend (client-only to avoid hydration mismatch) */}
           {hasData && (
-            <>
+            <ClientOnly fallback={<div className="h-40 rounded-xl bg-muted/20 animate-pulse mb-6" />}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
@@ -139,7 +140,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                 </h3>
                 <WordCloud items={items} />
               </div>
-            </>
+            </ClientOnly>
           )}
 
           <EventThreadList threads={threads} />
