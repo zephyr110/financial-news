@@ -1,6 +1,5 @@
 import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
-import { Button } from "./ui/button";
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
@@ -13,9 +12,14 @@ export default function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" disabled>
-        <span className="h-5 w-5" />
-      </Button>
+      <button
+        type="button"
+        disabled
+        className="p-2 rounded-md text-muted-foreground"
+        aria-label="切换主题"
+      >
+        <span className="h-5 w-5 block" />
+      </button>
     );
   }
 
@@ -26,11 +30,12 @@ export default function ThemeToggle() {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
+    <button
+      type="button"
       onClick={cycleTheme}
+      className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       aria-label="切换主题"
+      title="切换主题"
     >
       {theme === "system" ? (
         <Monitor className="h-5 w-5 transition-transform duration-300" />
@@ -39,6 +44,6 @@ export default function ThemeToggle() {
       ) : (
         <Sun className="h-5 w-5 transition-transform duration-300" />
       )}
-    </Button>
+    </button>
   );
 }
