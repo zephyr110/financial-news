@@ -1,6 +1,6 @@
-import { getCostEstimate } from '../../../lib/analyze.js';
-import { getDbCounts } from '../../../lib/db.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { getCostEstimate } from '../../../lib/analyze';
+import { getDbCounts } from '../../../lib/db';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Admin endpoint: returns usage stats and DB counts.

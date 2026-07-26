@@ -1,4 +1,4 @@
-import { getBacktestSummary } from '../../lib/market.js';
+import { getBacktestSummary } from '../../lib/market';
 
 /**
  * Public API: returns backtest summary grouped by signal score.

@@ -1,5 +1,5 @@
-import { detectEventThreads } from '../../../lib/analyze.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { detectEventThreads } from '../../../lib/analyze';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Phase 2 Step 3: Event thread detection (every 6h).

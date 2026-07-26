@@ -1,5 +1,5 @@
-import { analyzeUnanalyzedNews } from '../../../lib/analyze.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { analyzeUnanalyzedNews } from '../../../lib/analyze';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Cron endpoint: triggers LLM analysis of unanalyzed news.

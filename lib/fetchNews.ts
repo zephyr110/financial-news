@@ -1,5 +1,5 @@
-import { url } from './sina.js';
-import { FILTER_KEYWORDS } from './constants.js';
+import { url } from './sina';
+import { FILTER_KEYWORDS } from './constants';
 
 /**
  * 从新浪财经 API 抓取并过滤新闻

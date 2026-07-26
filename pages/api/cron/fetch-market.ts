@@ -1,5 +1,5 @@
-import { fetchMarketData, saveMarketData, runBacktest } from '../../../lib/market.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { fetchMarketData, saveMarketData, runBacktest } from '../../../lib/market';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Phase 4: Fetch market data + run backtest.

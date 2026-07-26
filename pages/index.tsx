@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
-import { getArchivedNews } from "../lib/db.js";
-import { fetchLiveNews } from "../lib/archive.js";
+import { getArchivedNews } from "../lib/db";
+import { fetchLiveNews } from "../lib/archive";
 import NewsList from "../components/NewsList";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";

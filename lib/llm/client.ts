@@ -5,7 +5,7 @@
  * provider that exposes an OpenAI-compatible /v1/chat/completions endpoint.
  */
 
-import { LLM_CONFIG, getChatCompletionsUrl, PRICING } from './config.js';
+import { LLM_CONFIG, getChatCompletionsUrl, PRICING } from './config';
 
 export const usageLog = [];
 

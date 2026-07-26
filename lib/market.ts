@@ -2,7 +2,7 @@
  * Eastmoney sector index data fetcher.
  * Fetches daily quote for 申万 industry sector indices via the quote API.
  */
-import { getDb } from './db.js';
+import { getDb } from './db';
 
 const EM_QUOTE_URL = 'https://push2.eastmoney.com/api/qt/stock/get';
 

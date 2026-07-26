@@ -14,9 +14,9 @@ import SignalTimeline from "../components/SignalTimeline";
 import IndustrySelector from "../components/IndustrySelector";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db.js";
-import { useWatchedIndustries } from "../lib/useWatchedIndustries.js";
-import { safeParse } from "../lib/utils.js";
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db";
+import { useWatchedIndustries } from "../lib/useWatchedIndustries";
+import { safeParse } from "../lib/utils";
 
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
   let filtered = allItems;
@@ -98,7 +98,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
         <meta name="description" content="AI 驱动的财经信号识别引擎 — 政策、行业、公司信号强度分析" />
       </Head>
 
-      <SiteHeader onRefresh={doRefresh} refreshing={fetching} />
+      <SiteHeader onRefresh={doRefresh} refreshing={fetching} lastUpdated={null} />
       <SignalAlert items={items} />
 
       <div className="min-h-screen bg-background">

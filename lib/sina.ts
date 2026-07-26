@@ -15,13 +15,13 @@
 
 const endpoint = 'https://zhibo.sina.com.cn/api/zhibo/feed';
 const params = new URLSearchParams({
-  page: 1,
-  page_size: 100,
-  zhibo_id: 152,
-  tag_id: 0,
+  page: '1',
+  page_size: '100',
+  zhibo_id: '152',
+  tag_id: '0',
   dire: 'f',
-  dpc: 1,
-  type: 0,
+  dpc: '1',
+  type: '0',
 });
 
 export const url = endpoint + '?' + params.toString();

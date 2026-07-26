@@ -29,7 +29,7 @@ export default function TimeRangeFilter({ value, onChange }) {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      const diffHours = Math.max(1, Math.round((end - start) / (1000 * 60 * 60)));
+      const diffHours = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
       onChange(diffHours);
       setCustomOpen(false);
     }

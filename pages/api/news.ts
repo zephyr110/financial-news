@@ -1,5 +1,5 @@
-import { getArchivedNews } from '../../lib/db.js';
-import { fetchLiveNews } from "../../lib/archive.js";
+import { getArchivedNews } from '../../lib/db';
+import { fetchLiveNews } from "../../lib/archive";
 
 function todayKey() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });

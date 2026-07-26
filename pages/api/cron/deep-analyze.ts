@@ -1,5 +1,5 @@
-import { deepAnalyzeSignals } from '../../../lib/analyze.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { deepAnalyzeSignals } from '../../../lib/analyze';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Phase 2 Step 2: Deep entity mapping for signal >= 3 news.

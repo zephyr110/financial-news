@@ -1,6 +1,6 @@
-import { fetchNews } from './fetchNews.js';
-import { insertNews, insertNewsBatch } from './db.js';
-import { FILTER_KEYWORDS } from './constants.js';
+import { fetchNews } from './fetchNews';
+import { insertNews, insertNewsBatch } from './db';
+import { FILTER_KEYWORDS } from './constants';
 
 // Eastmoney & CLS news APIs are currently unavailable (404/405 as of 2026-07).
 // Infrastructure kept for when APIs are re-enabled. Sina remains the primary working source.

@@ -1,7 +1,7 @@
-import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads } from './db.js';
-import { LLM_CONFIG, describeProvider } from './llm/config.js';
-import { chatCompletion, getUsageStats, getCostEstimate } from './llm/client.js';
-import { SCORE_TO_IMPACT } from './constants.js';
+import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads } from './db';
+import { LLM_CONFIG, describeProvider } from './llm/config';
+import { chatCompletion, getUsageStats, getCostEstimate } from './llm/client';
+import { SCORE_TO_IMPACT } from './constants';
 
 // Re-export for backward compatibility (used by /api/cron/stats)
 export { getUsageStats, getCostEstimate };

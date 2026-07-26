@@ -1,5 +1,5 @@
-import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from '../../lib/db.js';
-import { safeParse } from '../../lib/utils.js';
+import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from '../../lib/db';
+import { safeParse } from '../../lib/utils';
 
 function clampInt(value, fallback, min, max) {
   const n = parseInt(value, 10);

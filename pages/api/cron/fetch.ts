@@ -1,5 +1,5 @@
-import { archiveNews } from '../../../lib/archive.js';
-import { assertCronAuth } from '../../../lib/cronAuth.js';
+import { archiveNews } from '../../../lib/archive';
+import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
  * Cron endpoint: triggers news archiving from all sources.
