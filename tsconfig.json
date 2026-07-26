@@ -12,21 +12,23 @@
     "strict": false,
     "noEmit": true,
     "jsx": "react-jsx",
-    "incremental": false,
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "*": [
-        "./*"
       ]
-    }
+    },
+    "incremental": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
   "include": [
     "**/*.js",
+    "**/*.jsx",
     "**/*.ts",
-    "**/*.tsx",
-    "**/*.jsx"
+    "**/*.tsx"
   ],
   "exclude": [
     "node_modules",
