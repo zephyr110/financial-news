@@ -14,19 +14,21 @@ export default function SignalAlert({ items }) {
     const critical = items.filter(i => i.signal_score >= 4);
     if (critical.length === 0) return;
 
-    // Only notify if we have new items since last check
     const latestId = critical[0]?.id || 0;
     if (latestId <= lastNotifiedRef.current) return;
     lastNotifiedRef.current = latestId;
 
-    // Request permission if needed
+    let cancelled = false;
+
     if (Notification.permission === 'granted') {
       showNotification(critical);
     } else if (Notification.permission === 'default') {
       Notification.requestPermission().then(perm => {
-        if (perm === 'granted') showNotification(critical);
+        if (!cancelled && perm === 'granted') showNotification(critical);
       });
     }
+
+    return () => { cancelled = true; };
   }, [items]);
 
   return null;
