@@ -4,6 +4,14 @@ import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, CATEGORY_COLORS, SCORE_COLORS } from "@/lib/constants";
 import { parseItemTime, formatTime, formatDate } from "@/lib/format";
 
+const SOURCE_LABELS = {
+  sina: '新浪',
+  '10jqka': '同花顺',
+  wallstreetcn: '华尔街见闻',
+  eastmoney: '东财',
+  cls: '财联社',
+};
+
 export default function AnalysisNewsCard({ item }) {
   const time = parseItemTime(item);
   const timeLabel = formatTime(time);
@@ -36,7 +44,7 @@ export default function AnalysisNewsCard({ item }) {
 
               {item.source && (
                 <Badge variant="secondary" className="text-[10px] sm:text-[11px] px-1.5 py-0">
-                  {item.source === 'sina' ? '新浪' : item.source === '10jqka' ? '同花顺' : item.source === 'wallstreetcn' ? '华尔街' : item.source === 'eastmoney' ? '东财' : item.source === 'cls' ? '财联社' : item.source}
+                  {SOURCE_LABELS[item.source] || item.source}
                 </Badge>
               )}
 
