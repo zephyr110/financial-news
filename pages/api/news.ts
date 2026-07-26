@@ -55,6 +55,13 @@ export default async function handler(req, res) {
       console.error('[api/news] Live supplement failed:', liveErr.message);
     }
 
+    // Filter to last 7 days
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    result = result.filter(item => {
+      const d = item.published_at ? new Date(item.published_at) : null;
+      return d && d.getTime() > weekAgo;
+    });
+
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.status(200).json({ items: result });

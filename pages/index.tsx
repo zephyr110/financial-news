@@ -232,6 +232,13 @@ export async function getStaticProps() {
       console.error('[index] Live supplement failed:', liveErr.message);
     }
 
+    // Filter to last 7 days only
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    items = items.filter(item => {
+      const d = item.published_at ? new Date(item.published_at) : null;
+      return d && d.getTime() > weekAgo;
+    });
+
     return {
       props: { items, error: null },
       revalidate: 1800,
