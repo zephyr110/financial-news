@@ -207,18 +207,39 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 export async function getStaticProps() {
   try {
     const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
-    if (rows.length === 0) {
-      console.log("[index] DB empty, falling back to live Sina API...");
-      const liveItems = await fetchNews();
-      if (liveItems.length > 0) {
-        return {
-          props: { items: liveItems, error: null },
-          revalidate: 300,
-        };
+    const items = mapArchiveRows(rows);
+
+    // Supplement: if no data from today, merge live Sina data
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+    const hasToday = items.some(item => {
+      const d = item.published_at ? new Date(item.published_at) : null;
+      return d && d.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }) === today;
+    });
+
+    if (!hasToday) {
+      console.log('[index] No today data, supplementing with live API...');
+      try {
+        const liveItems = await fetchNews();
+        if (liveItems.length > 0) {
+          return {
+            props: { items: [...liveItems, ...items], error: null },
+            revalidate: 300,
+          };
+        }
+      } catch (liveErr) {
+        console.error('[index] Live supplement failed:', liveErr.message);
       }
     }
+
+    if (rows.length === 0 && items.length === 0) {
+      return {
+        props: { items: [], error: null },
+        revalidate: 300,
+      };
+    }
+
     return {
-      props: { items: mapArchiveRows(rows), error: null },
+      props: { items, error: null },
       revalidate: 1800,
     };
   } catch (e) {
