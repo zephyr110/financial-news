@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import { getArchivedNews } from "../lib/db.js";
-import { fetchNews } from "../lib/fetchNews.js";
+import { fetchLiveNews } from "../lib/archive.js";
 import NewsList from "../components/NewsList";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
@@ -226,7 +226,7 @@ export async function getStaticProps() {
     if (!hasToday) {
       console.log('[index] No today data, supplementing with live API...');
       try {
-        const liveItems = await fetchNews();
+        const liveItems = await fetchLiveNews();
         if (liveItems.length > 0) {
           return {
             props: { items: [...liveItems, ...items], error: null },

@@ -1,5 +1,5 @@
 import { getArchivedNews } from '../../lib/db.js';
-import { fetchNews } from '../../lib/fetchNews.js';
+import { fetchLiveNews } from "../../lib/archive.js";
 
 function todayKey() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
@@ -7,16 +7,17 @@ function todayKey() {
 
 /**
  * 新闻数据 API — 最近 7 天归档 + 今日实时补充
- * GET /api/news
+ * GET /api/news?limit=100&before=2026-07-25T12:00:00Z
  */
 export default async function handler(req, res) {
   try {
-    let rows = await getArchivedNews({ daysBack: 7, limit: 500 });
+    const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
+    let rows = await getArchivedNews({ daysBack: 7, limit });
 
     // Fallback: DB empty (fresh deploy)
     if (rows.length === 0) {
       console.log('[api/news] DB empty, falling back to live Sina API...');
-      const liveItems = await fetchNews();
+      const liveItems = await fetchLiveNews();
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.status(200).json({ items: liveItems });
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
     if (!hasTodayData) {
       try {
         console.log('[api/news] No today data in DB, supplementing with live API...');
-        const liveItems = await fetchNews();
+        const liveItems = await fetchLiveNews();
         const merged = [...liveItems, ...items];
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
