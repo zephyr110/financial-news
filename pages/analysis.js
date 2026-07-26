@@ -9,6 +9,7 @@ import WordCloud from "../components/WordCloud";
 import EventThreadList from "../components/EventThreadList";
 import TimeRangeFilter from "../components/TimeRangeFilter";
 import ClientOnly from "../components/ClientOnly";
+import SignalAlert from "../components/SignalAlert";
 import SignalTimeline from "../components/SignalTimeline";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
@@ -85,6 +86,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       </Head>
 
       <SiteHeader onRefresh={doRefresh} refreshing={fetching} />
+      <SignalAlert items={items} />
 
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">

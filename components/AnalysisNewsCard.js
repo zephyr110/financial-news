@@ -36,7 +36,7 @@ export default function AnalysisNewsCard({ item }) {
 
               {item.source && (
                 <Badge variant="secondary" className="text-[10px] sm:text-[11px] px-1.5 py-0">
-                  {item.source === 'sina' ? '新浪' : item.source === 'eastmoney' ? '东财' : item.source}
+                  {item.source === 'sina' ? '新浪' : item.source === 'eastmoney' ? '东财' : item.source === 'cls' ? '财联社' : item.source}
                 </Badge>
               )}
 
