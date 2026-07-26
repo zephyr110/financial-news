@@ -52,7 +52,7 @@ export default function IndustryTrendChart({ data }) {
 
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 4, right: 8, left: -8, bottom: 4 }}>
+      <LineChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
           dataKey="time"
@@ -66,8 +66,8 @@ export default function IndustryTrendChart({ data }) {
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          width={32}
-          label={{ value: "信号数", angle: -90, position: "insideLeft", offset: 8, style: { fontSize: 11, fill: "var(--muted-foreground)" } }}
+          width={40}
+          label={{ value: "信号数", angle: -90, position: "center", offset: -28, style: { fontSize: 11, fill: "var(--muted-foreground)" } }}
         />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend
