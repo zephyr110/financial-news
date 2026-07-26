@@ -78,10 +78,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
     return () => controller.abort();
   }, [doRefresh]);
 
+  // Apply industry filter first, then score/card filters on top
+  const watchedItems = useMemo(() => filterByWatched(items), [items, filterByWatched]);
+
   const filteredItems = useMemo(() => {
-    const scored = applyFilters(items, cardFilter, scoreFilter, stats?.max_score || 0);
-    return filterByWatched(scored);
-  }, [items, cardFilter, scoreFilter, stats?.max_score, filterByWatched]);
+    return applyFilters(watchedItems, cardFilter, scoreFilter, stats?.max_score || 0);
+  }, [watchedItems, cardFilter, scoreFilter, stats?.max_score]);
 
   // Derive available industries from heatmap for the selector
   const availableIndustries = useMemo(() => {
@@ -99,7 +101,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       </Head>
 
       <SiteHeader onRefresh={doRefresh} refreshing={fetching} lastUpdated={null} />
-      <SignalAlert items={items} />
+      <SignalAlert items={watchedItems} />
 
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
@@ -119,7 +121,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           <AnalysisOverview
             stats={stats}
-            items={items}
+            items={watchedItems}
             loading={fetching && items.length === 0}
             filter={cardFilter}
             onFilterChange={setCardFilter}
@@ -139,7 +141,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
                     信号分类占比
                   </h3>
-                  <CategoryDonutChart items={items} />
+                  <CategoryDonutChart items={watchedItems} />
                 </div>
               </div>
 
@@ -159,7 +161,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                 <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
                   焦点热词
                 </h3>
-                <WordCloud items={items} />
+                <WordCloud items={watchedItems} />
               </div>
             </ClientOnly>
           )}
