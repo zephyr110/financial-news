@@ -1,7 +1,7 @@
 {
   "name": "financial-news",
   "version": "2.0.0",
-  "description": "新浪全球实时财经新闻 RSS — Next.js + ISR 自动更新",
+  "description": "\u65b0\u6d6a\u5168\u7403\u5b9e\u65f6\u8d22\u7ecf\u65b0\u95fb RSS \u2014 Next.js + ISR \u81ea\u52a8\u66f4\u65b0",
   "private": true,
   "packageManager": "pnpm@11.14.0",
   "scripts": {
@@ -9,7 +9,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -34,6 +36,7 @@
     "shadcn": "^3.8.3",
     "tailwindcss": "^4.3.3",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }
