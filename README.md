@@ -8,9 +8,11 @@ AI-powered financial news aggregation & signal analysis engine.
 
 ## What It Does
 
-- **Aggregates** real-time financial news from Sina 7×24 tickers
+- **Aggregates** real-time financial news from Sina, 10jqka, Wallstreetcn
 - **Scores** every news item (1–5) with an LLM — policy, geopolitics, industry, company, macro
 - **Visualizes** signals with charts, trend lines, word clouds, and a filterable timeline
+- **Analyzes** market impact via backtest engine comparing signals to sector returns
+- **Notifies** via browser push when critical signals (≥4) appear
 - **Delivers** RSS 2.0 / JSON Feed for subscription
 
 ## Analysis Dashboard
@@ -18,27 +20,28 @@ AI-powered financial news aggregation & signal analysis engine.
 ![Analysis](https://raw.githubusercontent.com/zephyr110/blog-img/main/financial-signals-analysis.png)
 
 The `/analysis` page provides:
-- **Signal strength cards** — at-a-glance summary with click-to-filter
-- **Industry distribution** — horizontal bar chart of top industries
-- **Category breakdown** — donut chart by signal category
-- **Trend line chart** — industry attention trends (24h / week / month / year / custom range)
-- **Keyword cloud** — most frequently mentioned terms
-- **Signal timeline** — filterable, scrollable list of every scored news item
+- **Signal strength cards** — gradient cards with click-to-filter
+- **Industry bar chart** — top sectors by signal count
+- **Category donut chart** — policy vs industry vs company distribution
+- **Trend line chart** — industry attention trends (24h / week / month / year / custom)
+- **Keyword cloud** — weighted multi-source (tags × industries × categories × companies)
+- **Event threads** — LLM-detected narrative clusters with stage/confidence
+- **Signal timeline** — filterable by score, category, and watched industries
 
 ## Tech Stack
 
-Next.js 16 (Pages Router) · Tailwind CSS v4 · shadcn/ui · Recharts · Turso (libSQL) · OpenAI-compatible LLM API
+Next.js 16 (Pages Router) · TypeScript 5.9 · Tailwind CSS v4 · shadcn/ui · Recharts · Turso (libSQL) · Vitest · Husky
 
 ## Quick Start
 
 ```bash
 pnpm install
-pnpm dev      # http://localhost:3000 → Analysis at /analysis
+pnpm dev        # http://localhost:3000 → Analysis at /analysis
 pnpm build
 pnpm start
+pnpm test       # 39 tests
+pnpm typecheck  # tsc --noEmit
 ```
-
-Without Turso, a local `news_archive.db` SQLite file is used automatically.
 
 ## Environment Variables
 
@@ -51,23 +54,27 @@ Without Turso, a local `news_archive.db` SQLite file is used automatically.
 | `TURSO_DATABASE_URL` | Turso DB URL (production) | — |
 | `TURSO_AUTH_TOKEN` | Turso auth token | — |
 
-Switch LLM providers by changing `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY`.
-
 ## API
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/cron/fetch` | Archive news from all sources (auth) |
-| `GET /api/cron/analyze` | Run LLM signal analysis (auth) |
+| `GET /api/cron/analyze` | LLM signal scoring (auth) |
+| `GET /api/cron/deep-analyze` | Deep entity mapping (auth) |
+| `GET /api/cron/event-threads` | Event thread detection (auth) |
+| `GET /api/cron/fetch-market` | Market data + backtest (auth) |
 | `GET /api/cron/stats` | Usage & DB stats (auth) |
 | `GET /api/analysis` | Analysis data (public) |
+| `GET /api/backtest` | Backtest summary (public) |
 | `GET /api/news` | Archived news (public) |
 | `GET /api/rss.xml` | RSS 2.0 |
 | `GET /api/rss.json` | JSON Feed |
 
 ## Scheduling
 
-GitHub Actions triggers fetch + analyze hourly (`.github/workflows/cron.yml`). Requires `APP_URL` and `CRON_SECRET` as GitHub Secrets.
+GitHub Actions hourly pipeline: `fetch → analyze → deep-analyze → event-threads → fetch-market`
+
+GitHub Secrets required: `APP_URL`, `CRON_SECRET`
 
 ## Deployment
 
@@ -75,7 +82,7 @@ GitHub Actions triggers fetch + analyze hourly (`.github/workflows/cron.yml`). R
 
 1. Create a database on [Turso](https://turso.tech)
 2. Set Vercel env vars: `LLM_API_KEY`, `CRON_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
-3. Configure GitHub Actions Secrets: `APP_URL`, `CRON_SECRET`
+3. Configure GitHub Secrets: `APP_URL`, `CRON_SECRET`
 4. Manually trigger fetch + analyze once to seed initial data
 
 ## License
