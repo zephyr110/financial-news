@@ -1,8 +1,6 @@
 import { AlertTriangle, TrendingUp, Zap, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// --- Card definitions with distinct gradient backgrounds ---
-
 const CARDS = [
   {
     key: null,
@@ -10,7 +8,7 @@ const CARDS = [
     label: "信号强度",
     gradient: "from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600",
     textColor: "text-white",
-    mutedColor: "text-blue-100/80",
+    mutedColor: "text-blue-50",
     ringColor: "ring-blue-400/40",
   },
   {
@@ -19,7 +17,7 @@ const CARDS = [
     label: "预警信号",
     gradient: "from-rose-600 to-rose-500 dark:from-rose-700 dark:to-rose-600",
     textColor: "text-white",
-    mutedColor: "text-rose-100/80",
+    mutedColor: "text-rose-50",
     ringColor: "ring-rose-400/40",
   },
   {
@@ -28,7 +26,7 @@ const CARDS = [
     label: "重要信号",
     gradient: "from-amber-500 to-amber-400 dark:from-amber-600 dark:to-amber-500",
     textColor: "text-white",
-    mutedColor: "text-amber-100/80",
+    mutedColor: "text-amber-50",
     ringColor: "ring-amber-400/40",
   },
   {
@@ -37,7 +35,7 @@ const CARDS = [
     label: "最高分",
     gradient: "from-emerald-600 to-emerald-500 dark:from-emerald-700 dark:to-emerald-600",
     textColor: "text-white",
-    mutedColor: "text-emerald-100/80",
+    mutedColor: "text-emerald-50",
     ringColor: "ring-emerald-400/40",
   },
 ];
@@ -74,37 +72,30 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
                 : "hover:shadow-lg hover:scale-[1.01]"
             )}
           >
-            {/* Decorative circle behind icon */}
-            <div className={cn(
-              "absolute -top-3 -right-3 w-16 h-16 rounded-full opacity-15",
-              "bg-white dark:bg-white"
-            )} />
+            <div className="absolute -top-3 -right-3 w-16 h-16 rounded-full bg-white/10" />
 
-            {/* Row 1: Icon + Label */}
             <div className="relative flex items-center gap-1.5 mb-2">
               <Icon className={cn("h-3.5 w-3.5", mutedColor)} />
-              <span className={cn("text-[11px] sm:text-xs font-medium", mutedColor)}>
+              <span className={cn("text-[11px] sm:text-xs font-semibold", mutedColor)}>
                 {label}
               </span>
             </div>
 
-            {/* Row 2: Big number */}
             {loading ? (
               <div className="relative">
                 <div className="h-7 w-14 rounded bg-white/20 animate-pulse" />
               </div>
             ) : (
               <div className={cn(
-                "relative text-2xl sm:text-3xl font-bold tabular-nums tracking-tight mb-0.5",
+                "relative text-2xl sm:text-3xl font-bold tabular-nums tracking-tight mb-1",
                 textColor
               )}>
                 {value}
               </div>
             )}
 
-            {/* Row 3: Subtitle */}
             <div className={cn(
-              "relative text-[10px] sm:text-[11px] font-normal opacity-80",
+              "relative text-[11px] sm:text-xs font-medium",
               mutedColor
             )}>
               {sub}
