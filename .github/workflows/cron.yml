@@ -55,3 +55,14 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             --max-time 300
           echo ""
+
+  fetch-market:
+    needs: event-threads
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch market data + run backtest
+        run: |
+          curl -sS -X GET "${{ secrets.APP_URL }}/api/cron/fetch-market" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 300
+          echo ""

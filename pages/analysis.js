@@ -11,9 +11,11 @@ import TimeRangeFilter from "../components/TimeRangeFilter";
 import ClientOnly from "../components/ClientOnly";
 import SignalAlert from "../components/SignalAlert";
 import SignalTimeline from "../components/SignalTimeline";
+import IndustrySelector from "../components/IndustrySelector";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db.js";
+import { useWatchedIndustries } from "../lib/useWatchedIndustries.js";
 import { safeParse } from "../lib/utils.js";
 
 function applyFilters(allItems, cardFilter, scoreFilter, maxScore) {
@@ -41,7 +43,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
   const [fetching, setFetching] = useState(false);
   const [cardFilter, setCardFilter] = useState(null);
   const [scoreFilter, setScoreFilter] = useState(null);
-  const [trendHours, setTrendHours] = useState(168); // default: 周
+  const [trendHours, setTrendHours] = useState(168);
+  const { watched, toggle: toggleIndustry, clearAll: clearIndustries, filterByWatched } = useWatchedIndustries();
 
   const doRefresh = useCallback(async (signal) => {
     setFetching(true);
@@ -70,10 +73,15 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
     return () => controller.abort();
   }, [doRefresh]);
 
-  const filteredItems = useMemo(
-    () => applyFilters(items, cardFilter, scoreFilter, stats?.max_score || 0),
-    [items, cardFilter, scoreFilter, stats?.max_score]
-  );
+  const filteredItems = useMemo(() => {
+    const scored = applyFilters(items, cardFilter, scoreFilter, stats?.max_score || 0);
+    return filterByWatched(scored);
+  }, [items, cardFilter, scoreFilter, stats?.max_score, filterByWatched]);
+
+  // Derive available industries from heatmap for the selector
+  const availableIndustries = useMemo(() => {
+    return (heatmap || []).slice(0, 20).map(h => ({ industry: h.industry, signalCount: h.signalCount }));
+  }, [heatmap]);
 
   const hasData = items.length > 0;
 
@@ -90,10 +98,16 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
-          <div className="pt-8 pb-5">
+          <div className="pt-8 pb-5 flex items-end justify-between flex-wrap gap-2">
             <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
               政策 · 行业 · 公司 — AI 智能分析，一目了然
             </h2>
+            <IndustrySelector
+              industries={availableIndustries}
+              watched={watched}
+              onToggle={toggleIndustry}
+              onClear={clearIndustries}
+            />
           </div>
 
           <ErrorBanner message={error} />
