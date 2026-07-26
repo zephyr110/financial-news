@@ -53,7 +53,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       const res = await fetch(`/api/analysis?hoursBack=24&trendHours=${trendHours}`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems(data.items || []);
+      setItems((data.items || []).map(item => ({
+        ...item,
+        industries: item.industries ? safeParse(item.industries) : [],
+        companies: item.companies ? safeParse(item.companies) : [],
+        tags: item.tags ? safeParse(item.tags) : [],
+      })));
       setStats(data.stats || {});
       setHeatmap(data.heatmap || []);
       setTrend(data.trend || []);
