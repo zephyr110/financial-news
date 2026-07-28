@@ -1,47 +1,84 @@
-<p align="right"><a href="./README_CN.md">中文</a></p>
-
 # Financial Signals
 
-AI-powered financial news aggregation & signal analysis engine.
+AI-powered financial news aggregation & policy-industry signal analysis engine.
 
-![Homepage](https://raw.githubusercontent.com/zephyr110/blog-img/main/financial-signals-homepage.png)
+**Live Demo:** [https://financial-news-nine.vercel.app](https://financial-news-nine.vercel.app)
 
-## What It Does
+## System Architecture
 
-- **Aggregates** real-time financial news from Sina, 10jqka, Wallstreetcn
-- **Scores** every news item (1–5) with an LLM — policy, geopolitics, industry, company, macro
-- **Visualizes** signals with charts, trend lines, word clouds, and a filterable timeline
-- **Analyzes** market impact via backtest engine comparing signals to sector returns
-- **Notifies** via browser push when critical signals (≥4) appear
-- **Delivers** RSS 2.0 / JSON Feed for subscription
+```
+Sina / 10jqka / Wallstreetcn APIs
+        │
+        ▼
+  News Archive (Turso/SQLite)
+        │
+        ▼
+  LLM Analysis Pipeline (DeepSeek / OpenAI-compatible)
+  ├─ Step 1: Signal Scoring (1-5)
+  ├─ Step 2: Entity Mapping (industries, companies, tags)
+  └─ Step 3: Event Thread Detection
+        │
+        ▼
+  Next.js 16 (Pages Router) + ISR
+        │
+        ▼
+  Analysis Dashboard (/analysis)
+  ├─ Signal Cards + Charts + Timeline
+  └─ Market Backtest Engine
+```
 
-## Analysis Dashboard
+## Features
 
-![Analysis](https://raw.githubusercontent.com/zephyr110/blog-img/main/financial-signals-analysis.png)
+- **Multi-source news aggregation** — Sina, 10jqka, Wallstreetcn 7×24 tickers
+- **AI signal scoring** — LLM evaluates every news item (1–5), classifying by policy, geopolitics, industry, company, macro
+- **Analysis dashboard** — gradient signal cards, industry bar chart, category donut chart, trend line chart, event thread detection
+- **Personalized filtering** — watch specific industries, filter by score/category
+- **Market backtest** — correlate historical signals with sector index returns
+- **Browser notifications** — push alerts for critical signals (≥4)
+- **RSS / JSON Feed** — subscribe via standard feed formats
+- **Dark mode** — system-aware theme with manual toggle
 
-The `/analysis` page provides:
-- **Signal strength cards** — gradient cards with click-to-filter
-- **Industry bar chart** — top sectors by signal count
-- **Category donut chart** — policy vs industry vs company distribution
-- **Trend line chart** — industry attention trends (24h / week / month / year / custom)
-- **Keyword cloud** — weighted multi-source (tags × industries × categories × companies)
-- **Event threads** — LLM-detected narrative clusters with stage/confidence
-- **Signal timeline** — filterable by score, category, and watched industries
+## Data Sources
 
-## Tech Stack
+| Source | Status | Description |
+|--------|--------|-------------|
+| Sina Finance | ✅ Active | 7×24 global financial flash news |
+| 10jqka (同花顺) | ✅ Active | A-stock tagged news, 20 items/batch |
+| Wallstreetcn (华尔街见闻) | ✅ Active | Global macro live news |
+| Eastmoney | ⬜ Degraded | API deprecated (404) |
+| CLS (财联社) | ⬜ Degraded | Requires auth signature |
 
-Next.js 16 (Pages Router) · TypeScript 5.9 · Tailwind CSS v4 · shadcn/ui · Recharts · Turso (libSQL) · Vitest · Husky
+## GitHub Actions
+
+Hourly scheduled pipeline (`13 */4 * * *`):
+
+```
+fetch → analyze → deep-analyze → event-threads → fetch-market
+```
+
+Manual trigger also available via `workflow_dispatch`.
+
+GitHub Secrets required: `APP_URL`, `CRON_SECRET`.
 
 ## Quick Start
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:3000 → Analysis at /analysis
+pnpm dev        # http://localhost:3000
 pnpm build
 pnpm start
 pnpm test       # 39 tests
 pnpm typecheck  # tsc --noEmit
 ```
+
+## Deployment
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
+
+1. Create a database on [Turso](https://turso.tech)
+2. Set Vercel env vars: `LLM_API_KEY`, `CRON_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+3. Configure GitHub Secrets: `APP_URL`, `CRON_SECRET`
+4. Manually trigger fetch + analyze once to seed initial data
 
 ## Environment Variables
 
@@ -53,37 +90,7 @@ pnpm typecheck  # tsc --noEmit
 | `CRON_SECRET` | Protects cron endpoints | — |
 | `TURSO_DATABASE_URL` | Turso DB URL (production) | — |
 | `TURSO_AUTH_TOKEN` | Turso auth token | — |
-
-## API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/cron/fetch` | Archive news from all sources (auth) |
-| `GET /api/cron/analyze` | LLM signal scoring (auth) |
-| `GET /api/cron/deep-analyze` | Deep entity mapping (auth) |
-| `GET /api/cron/event-threads` | Event thread detection (auth) |
-| `GET /api/cron/fetch-market` | Market data + backtest (auth) |
-| `GET /api/cron/stats` | Usage & DB stats (auth) |
-| `GET /api/analysis` | Analysis data (public) |
-| `GET /api/backtest` | Backtest summary (public) |
-| `GET /api/news` | Archived news (public) |
-| `GET /api/rss.xml` | RSS 2.0 |
-| `GET /api/rss.json` | JSON Feed |
-
-## Scheduling
-
-GitHub Actions hourly pipeline: `fetch → analyze → deep-analyze → event-threads → fetch-market`
-
-GitHub Secrets required: `APP_URL`, `CRON_SECRET`
-
-## Deployment
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
-
-1. Create a database on [Turso](https://turso.tech)
-2. Set Vercel env vars: `LLM_API_KEY`, `CRON_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
-3. Configure GitHub Secrets: `APP_URL`, `CRON_SECRET`
-4. Manually trigger fetch + analyze once to seed initial data
+| `NEWS_DB_PATH` | Local SQLite path (dev) | `news_archive.db` |
 
 ## License
 

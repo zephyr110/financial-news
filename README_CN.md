@@ -2,43 +2,85 @@
 
 # 财经信号
 
-AI 驱动的财经新闻聚合与信号分析引擎。
+AI 驱动的财经新闻聚合与政策-行业信号分析引擎。
 
-![首页](https://raw.githubusercontent.com/zephyr110/blog-img/main/financial-signals-homepage.png)
+**在线 Demo：** [https://financial-news-nine.vercel.app](https://financial-news-nine.vercel.app)
 
-## 功能概览
+## 系统架构
 
-- **双源新闻归档** — 新浪 7×24 快讯自动采集、过滤、去重
-- **AI 信号评分** — LLM 对每条新闻打分（1–5），分为政策、地缘、行业、公司、宏观六类
-- **可视化分析** — 图表、趋势线、词云、可筛选的时间线
-- **RSS 订阅** — 支持 RSS 2.0 / JSON Feed
+```
+新浪 / 同花顺 / 华尔街见闻 API
+        │
+        ▼
+  新闻归档 (Turso/SQLite)
+        │
+        ▼
+  LLM 分析管道 (DeepSeek / OpenAI 兼容)
+  ├─ Step 1: 信号评分 (1-5)
+  ├─ Step 2: 实体映射 (行业、公司、标签)
+  └─ Step 3: 事件线索检测
+        │
+        ▼
+  Next.js 16 (Pages Router) + ISR
+        │
+        ▼
+  分析面板 (/analysis)
+  ├─ 信号卡片 + 图表 + 时间线
+  └─ 行情回测引擎
+```
 
-## 分析面板
+## 功能
 
-![分析面板](https://raw.githubusercontent.com/zephyr110/blog-img/main/financial-signals-analysis.png)
+- **多源新闻聚合** — 新浪、同花顺、华尔街见闻 7×24 实时快讯
+- **AI 信号评分** — LLM 对每条新闻打分（1-5），分为政策、地缘、行业、公司、宏观六类
+- **分析面板** — 渐变信号卡片、行业柱状图、分类环形图、趋势折线图、事件线索识别
+- **个性化筛选** — 关注特定行业、按分数/分类筛选
+- **行情回测** — 历史信号与行业指数收益关联分析
+- **浏览器推送** — ≥4 分关键信号通知
+- **RSS / JSON Feed** — 标准格式订阅
+- **暗色模式** — 跟随系统 + 手动切换
 
-`/analysis` 页面提供：
-- **信号强度卡片** — 四张渐变卡片，点击可筛选时间线
-- **行业信号分布** — 横向柱状图，展示 Top 行业信号量
-- **信号分类占比** — 环形图，按政策/行业/公司等分类
-- **行业热度趋势** — 多线折线图，支持 24h / 周 / 月 / 年 / 自定义时间跨度
-- **焦点热词** — 基于 LLM 识别的行业关键词词云
-- **信号时间线** — 可按分数、卡片筛选的完整信号列表
+## 数据来源
 
-## 技术栈
+| 来源 | 状态 | 说明 |
+|------|------|------|
+| 新浪财经 | ✅ 活跃 | 7×24 全球财经快讯 |
+| 同花顺 | ✅ 活跃 | A 股标签新闻，20 条/批 |
+| 华尔街见闻 | ✅ 活跃 | 全球宏观实时快讯 |
+| 东方财富 | ⬜ 降级 | API 失效 (404) |
+| 财联社 | ⬜ 降级 | 需鉴权签名 |
 
-Next.js 16 (Pages Router) · Tailwind CSS v4 · shadcn/ui · Recharts · Turso (libSQL) · OpenAI-compatible LLM API
+## GitHub Actions
+
+每 4 小时定时执行 (`13 */4 * * *`)：
+
+```
+fetch → analyze → deep-analyze → event-threads → fetch-market
+```
+
+支持手动触发 (`workflow_dispatch`)。
+
+需配置 GitHub Secrets：`APP_URL`、`CRON_SECRET`。
 
 ## 快速开始
 
 ```bash
 pnpm install
-pnpm dev      # http://localhost:3000 → 分析面板 /analysis
+pnpm dev        # http://localhost:3000
 pnpm build
 pnpm start
+pnpm test       # 39 个测试用例
+pnpm typecheck  # tsc --noEmit
 ```
 
-未配置 Turso 时自动使用本地 `news_archive.db` SQLite 文件。
+## 部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
+
+1. [Turso](https://turso.tech) 创建数据库
+2. Vercel 配置环境变量：`LLM_API_KEY`、`CRON_SECRET`、`TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`
+3. GitHub Secrets 配置：`APP_URL`、`CRON_SECRET`
+4. 手动触发一次 fetch + analyze 初始化数据
 
 ## 环境变量
 
@@ -50,33 +92,7 @@ pnpm start
 | `CRON_SECRET` | 保护 cron 端点 | — |
 | `TURSO_DATABASE_URL` | Turso 数据库地址 | — |
 | `TURSO_AUTH_TOKEN` | Turso 鉴权 token | — |
-
-更换 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 即可切换 LLM 提供商。
-
-## API
-
-| 端点 | 说明 |
-|------|------|
-| `GET /api/cron/fetch` | 双源新闻归档（需鉴权） |
-| `GET /api/cron/analyze` | LLM 信号分析（需鉴权） |
-| `GET /api/cron/stats` | 用量与 DB 统计（需鉴权） |
-| `GET /api/analysis` | 分析数据（公开） |
-| `GET /api/news` | 归档新闻（公开） |
-| `GET /api/rss.xml` | RSS 2.0 |
-| `GET /api/rss.json` | JSON Feed |
-
-## 定时调度
-
-GitHub Actions 每小时触发 fetch + analyze（`.github/workflows/cron.yml`）。需配置 GitHub Secrets：`APP_URL`、`CRON_SECRET`。
-
-## 部署
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
-
-1. [Turso](https://turso.tech) 创建数据库
-2. Vercel 配置环境变量：`LLM_API_KEY`、`CRON_SECRET`、`TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`
-3. GitHub Actions Secrets 配置：`APP_URL`、`CRON_SECRET`
-4. 首次部署后手动触发一次 fetch + analyze 初始化数据
+| `NEWS_DB_PATH` | 本地 SQLite 路径（开发模式） | `news_archive.db` |
 
 ## License
 
