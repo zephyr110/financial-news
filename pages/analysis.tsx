@@ -6,6 +6,7 @@ import IndustryBarChart from "../components/IndustryBarChart";
 import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
 import EventThreadList from "../components/EventThreadList";
+import BacktestPanel from "../components/BacktestPanel";
 import TimeRangeFilter from "../components/TimeRangeFilter";
 import ClientOnly from "../components/ClientOnly";
 import SignalAlert from "../components/SignalAlert";
@@ -204,6 +205,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           )}
 
           <EventThreadList threads={filteredThreads} />
+
+          <BacktestPanel />
 
           <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
