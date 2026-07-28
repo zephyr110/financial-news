@@ -23,6 +23,8 @@ export default function NewsList({ todayItems, pastDates }: Props) {
   const today = todayKey();
 
   // Past date states: { [date]: { loading: bool, items: any[] } }
+  const [todayCollapsed, setTodayCollapsed] = useState(false);
+
   const [pastState, setPastState] = useState<Record<string, { loading: boolean; items: any[] }>>({});
 
   // All past dates collapsed by default
@@ -80,10 +82,15 @@ export default function NewsList({ todayItems, pastDates }: Props) {
       <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" aria-hidden />
 
       <div className="space-y-6">
-        {/* Today — always expanded */}
+        {/* Today — toggleable, default expanded */}
         {todayGroups.map((group) => (
           <section key={group.date} className="relative pl-6">
-            <div className="flex w-full items-center gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setTodayCollapsed(!todayCollapsed)}
+              className="flex w-full items-center gap-2 mb-3 text-left group"
+              aria-expanded={!todayCollapsed}
+            >
               <span
                 className={cn(
                   "absolute left-0 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-background",
@@ -97,14 +104,22 @@ export default function NewsList({ todayItems, pastDates }: Props) {
               <span className="text-xs text-muted-foreground tabular-nums">
                 {group.items.length}
               </span>
-            </div>
-            <ul className="space-y-4 list-none">
-              {group.items.map((item, i) => (
-                <li key={item.id ?? `${group.date}-${i}`}>
-                  <NewsCard item={item} index={i} />
-                </li>
-              ))}
-            </ul>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform ml-auto",
+                  todayCollapsed ? "-rotate-90" : "rotate-0"
+                )}
+              />
+            </button>
+            {!todayCollapsed && (
+              <ul className="space-y-4 list-none">
+                {group.items.map((item, i) => (
+                  <li key={item.id ?? `${group.date}-${i}`}>
+                    <NewsCard item={item} index={i} />
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         ))}
 
