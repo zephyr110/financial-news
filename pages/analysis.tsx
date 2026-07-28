@@ -87,10 +87,18 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/analysis?hoursBack=24&cursor=${nextCursor}&trendHours=${trendHours}`);
+      // Score filter uses server-side filtering; card filter uses client-side
+      const minScoreParam = scoreFilter || 1;
+      const url = `/api/analysis?hoursBack=24&cursor=${nextCursor}&trendHours=${trendHours}&minScore=${minScoreParam}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems(prev => [...prev, ...(data.items || [])]);
+      setItems(prev => [...prev, ...(data.items || []).map((item: any) => ({
+        ...item,
+        industries: item.industries ? safeParse(item.industries) : [],
+        companies: item.companies ? safeParse(item.companies) : [],
+        tags: item.tags ? safeParse(item.tags) : [],
+      }))]);
       setNextCursor(data.nextCursor || null);
     } catch (e) {
       console.error('Load more failed:', e);
@@ -102,6 +110,23 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
   const filteredItems = useMemo(() => {
     return applyFilters(watchedItems, cardFilter, scoreFilter, stats?.max_score || 0);
   }, [watchedItems, cardFilter, scoreFilter, stats?.max_score]);
+
+  // Filter heatmap, trend, threads by watched industries
+  const filteredHeatmap = useMemo(() => {
+    if (!watched || watched.length === 0) return heatmap || [];
+    return (heatmap || []).filter(h => watched.includes(h.industry));
+  }, [heatmap, watched]);
+
+  const filteredThreads = useMemo(() => {
+    if (!watched || watched.length === 0) return threads || [];
+    return (threads || []).filter(t => {
+      if (!t.industries || t.industries.length === 0) return true;
+      return t.industries.some((ind: string) => watched.includes(ind));
+    });
+  }, [threads, watched]);
+
+  // Pass watched to IndustryTrendChart so it only shows watched industry lines
+  const trendWatched = watched.length > 0 ? watched : null;
 
   // Derive available industries from heatmap for the selector
   const availableIndustries = useMemo(() => {
@@ -153,7 +178,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
                     行业信号分布
                   </h3>
-                  <IndustryBarChart data={heatmap} />
+                  <IndustryBarChart data={filteredHeatmap} />
                 </div>
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
@@ -171,14 +196,14 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                     </h3>
                     <TimeRangeFilter value={trendHours} onChange={setTrendHours} />
                   </div>
-                  <IndustryTrendChart data={trend} />
+                  <IndustryTrendChart data={trend} watched={trendWatched} />
                 </div>
               )}
 
             </ClientOnly>
           )}
 
-          <EventThreadList threads={threads} />
+          <EventThreadList threads={filteredThreads} />
 
           <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
@@ -187,7 +212,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           </h3>
           <SignalTimeline
             items={filteredItems}
-            hasMore={!!nextCursor && !cardFilter && !scoreFilter}
+            hasMore={!!nextCursor}
             loading={loadingMore}
             onLoadMore={loadMore}
           />

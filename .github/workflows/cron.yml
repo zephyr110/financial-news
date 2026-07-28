@@ -2,8 +2,8 @@ name: News Archive & Analyze
 
 on:
   schedule:
-    # Every hour at :07 (avoid :00 peak congestion)
-    - cron: '7 * * * *'
+    # Every 4 hours at :13 (avoid peak, reduce LLM cost)
+    - cron: '13 */4 * * *'
 
   workflow_dispatch:  # manual trigger via GitHub UI
 

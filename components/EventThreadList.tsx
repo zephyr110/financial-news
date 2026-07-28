@@ -79,7 +79,12 @@ function EventThreadCard({ thread }) {
         </div>
       </button>
 
-      {open && (
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          open ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
         <div className="px-3 pb-3 border-t pt-2 space-y-2">
           <p className="text-[12px] sm:text-[13px] text-foreground leading-relaxed">
             {thread.narrative}
@@ -87,7 +92,7 @@ function EventThreadCard({ thread }) {
           {thread.industries?.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] text-muted-foreground">涉及行业：</span>
-              {thread.industries.map((ind) => (
+              {thread.industries.map((ind: string) => (
                 <span
                   key={ind}
                   className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground"
@@ -101,7 +106,7 @@ function EventThreadCard({ thread }) {
             <div>
               <span className="text-[10px] text-muted-foreground">后续关注：</span>
               <ul className="mt-1 space-y-0.5">
-                {thread.watch_points.map((p, i) => (
+                {thread.watch_points.map((p: string, i: number) => (
                   <li key={i} className="text-[11px] sm:text-xs text-muted-foreground flex items-start gap-1">
                     <span className="text-primary mt-0.5">•</span>
                     {p}
@@ -111,7 +116,7 @@ function EventThreadCard({ thread }) {
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

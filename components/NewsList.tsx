@@ -111,7 +111,12 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                 )}
               />
             </button>
-            {!todayCollapsed && (
+            <div
+              className={cn(
+                "overflow-hidden transition-all duration-300 ease-in-out",
+                todayCollapsed ? "max-h-0 opacity-0" : "max-h-[9999px] opacity-100"
+              )}
+            >
               <ul className="space-y-4 list-none">
                 {group.items.map((item, i) => (
                   <li key={item.id ?? `${group.date}-${i}`}>
@@ -119,7 +124,7 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                   </li>
                 ))}
               </ul>
-            )}
+            </div>
           </section>
         ))}
 
@@ -158,15 +163,24 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                 />
               </button>
 
-              {!isCollapsed && state && !state.loading && groups.length > 0 && (
-                <ul className="space-y-4 list-none">
-                  {groups.flatMap(g => g.items).map((item, i) => (
-                    <li key={item.id ?? `${date}-${i}`}>
-                      <NewsCard item={item} index={i} />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300 ease-in-out",
+                  !isCollapsed && state && !state.loading && groups.length > 0
+                    ? "max-h-[9999px] opacity-100"
+                    : "max-h-0 opacity-0"
+                )}
+              >
+                {state && !state.loading && groups.length > 0 && (
+                  <ul className="space-y-4 list-none">
+                    {groups.flatMap(g => g.items).map((item, i) => (
+                      <li key={item.id ?? `${date}-${i}`}>
+                        <NewsCard item={item} index={i} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           );
         })}

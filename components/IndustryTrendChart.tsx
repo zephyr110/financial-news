@@ -18,7 +18,7 @@ const TOOLTIP_STYLE = {
  * Multi-line trend chart — industry signal count over time (2-hour buckets).
  * Shows which industries are gaining attention over the time window.
  */
-export default function IndustryTrendChart({ data }) {
+export default function IndustryTrendChart({ data, watched }) {
   if (!data || data.length < 2) {
     return (
       <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
@@ -30,17 +30,23 @@ export default function IndustryTrendChart({ data }) {
   // Discover industry keys from data (skip 'time' key)
   const industryKeys = Object.keys(data[0]).filter(k => k !== "time");
 
-  // Show only top 5 industries by total count to avoid cluttered chart
-  const totals = new Map();
-  for (const row of data) {
-    for (const key of industryKeys) {
-      totals.set(key, (totals.get(key) || 0) + (row[key] || 0));
+  let topKeys: string[];
+  if (watched && watched.length > 0) {
+    // Only show watched industries that exist in the data
+    topKeys = watched.filter(k => industryKeys.includes(k));
+  } else {
+    // Show only top 5 industries by total count
+    const totals = new Map<string, number>();
+    for (const row of data) {
+      for (const key of industryKeys) {
+        totals.set(key, (totals.get(key) || 0) + (row[key] || 0));
+      }
     }
+    topKeys = Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k]) => k);
   }
-  const topKeys = Array.from(totals.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([k]) => k);
 
   if (topKeys.length === 0) {
     return (
