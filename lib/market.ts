@@ -46,7 +46,7 @@ export async function fetchMarketData() {
         name: d.f58,      // sector name
         type: 'index',    // sector index, not individual stock
         close: d.f43,     // latest price (or use f44=high, f45=low, f46=open)
-        change_pct: d.f169 || d.f170, // change %
+        change_pct: d.f170 != null ? d.f170 / 100 : null, // f170 = 涨跌幅, divide by 100 for actual %
         volume: d.f47,    // volume
       });
     } catch (err) {
@@ -152,17 +152,31 @@ export async function runBacktest(daysBack = 90) {
  */
 export async function getBacktestSummary() {
   const db = await getDb();
-  const result = await db.execute({
-    sql: `SELECT signal_score,
-            COUNT(*) as samples,
-            ROUND(AVG(day_1_return), 2) as avg_d1,
-            ROUND(AVG(day_3_return), 2) as avg_d3,
-            ROUND(AVG(day_7_return), 2) as avg_d7,
-            ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
-          FROM backtest_result
-          WHERE day_1_return IS NOT NULL
-          GROUP BY signal_score
-          ORDER BY signal_score DESC`,
-  });
-  return result.rows;
+  const [byScore, byIndustry] = await Promise.all([
+    db.execute({
+      sql: `SELECT signal_score,
+              COUNT(*) as samples,
+              ROUND(AVG(day_1_return), 2) as avg_d1,
+              ROUND(AVG(day_3_return), 2) as avg_d3,
+              ROUND(AVG(day_7_return), 2) as avg_d7,
+              ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
+            FROM backtest_result
+            WHERE day_1_return IS NOT NULL
+            GROUP BY signal_score
+            ORDER BY signal_score DESC`,
+    }),
+    db.execute({
+      sql: `SELECT industry, signal_score,
+              COUNT(*) as samples,
+              ROUND(AVG(day_1_return), 2) as avg_d1,
+              ROUND(AVG(day_3_return), 2) as avg_d3,
+              ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
+            FROM backtest_result
+            WHERE day_1_return IS NOT NULL
+            GROUP BY industry, signal_score
+            HAVING COUNT(*) >= 3
+            ORDER BY signal_score DESC, samples DESC`,
+    }),
+  ]);
+  return { byScore: byScore.rows, byIndustry: byIndustry.rows };
 }

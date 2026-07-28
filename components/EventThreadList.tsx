@@ -26,8 +26,7 @@ export default function EventThreadList({ threads }) {
 
   return (
     <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-      <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
-        <TrendingUp className="h-4 w-4 text-primary" />
+      <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
         事件线索
       </h3>
       <div className="space-y-3">

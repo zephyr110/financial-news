@@ -6,9 +6,9 @@ import { getBacktestSummary } from '../../lib/market';
  */
 export default async function handler(req, res) {
   try {
-    const summary = await getBacktestSummary();
+    const { byScore, byIndustry } = await getBacktestSummary();
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
-    res.status(200).json({ summary });
+    res.status(200).json({ byScore, byIndustry });
   } catch (error) {
     console.error('Backtest API error:', error);
     res.status(500).json({ error: 'Failed to fetch backtest data' });
