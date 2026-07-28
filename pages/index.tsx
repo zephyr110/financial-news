@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
-import { getArchivedNews } from "../lib/db";
-import { fetchLiveNews } from "../lib/archive";
 import NewsList from "../components/NewsList";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
@@ -10,18 +8,9 @@ import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
 
-function mapArchiveRows(rows) {
-  return rows.map((row) => ({
-    id: row.id,
-    rich_text: row.content,
-    published_at: row.published_at,
-    source: row.source,
-    title: row.title,
-  }));
-}
-
-export default function Home({ items: ssgItems, error: ssgError }) {
-  const [items, setItems] = useState(ssgItems);
+export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today: ssgTodayStr, error: ssgError }) {
+  const [todayItems, setTodayItems] = useState(ssgToday || []);
+  const [pastDates, setPastDates] = useState(ssgDates || []);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -53,7 +42,8 @@ export default function Home({ items: ssgItems, error: ssgError }) {
       const res = await fetch("/api/news", { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems(data.items || []);
+      setTodayItems(data.todayItems || []);
+      setPastDates(data.pastDates || []);
       setLastUpdated(new Date());
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -71,20 +61,20 @@ export default function Home({ items: ssgItems, error: ssgError }) {
   // Set mounted flag and initial timestamp client-side only (avoid hydration mismatch)
   useEffect(() => {
     setMounted(true);
-    if (ssgItems && ssgItems.length > 0) {
+    if (ssgToday && ssgToday.length > 0) {
       setLastUpdated(new Date());
     }
-  }, [ssgItems]);
+  }, [ssgToday]);
 
   // Only auto-refresh if SSG returned no data (cold start)
   useEffect(() => {
-    if (!ssgItems || ssgItems.length === 0) {
+    if (!ssgToday || ssgToday.length === 0) {
       doRefresh();
     }
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };
-  }, [doRefresh, ssgItems]);
+  }, [doRefresh, ssgToday]);
 
   // ---- touch handlers ----
   const onTouchStart = useCallback((e) => {
@@ -200,8 +190,8 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 
           <ErrorBanner message={error} />
 
-          {Array.isArray(items) && items.length > 0 ? (
-            <NewsList items={items} />
+          {todayItems.length > 0 ? (
+            <NewsList todayItems={todayItems} pastDates={pastDates} />
           ) : (
             !error && <EmptyState />
           )}
@@ -213,40 +203,24 @@ export default function Home({ items: ssgItems, error: ssgError }) {
 
 export async function getStaticProps() {
   try {
-    const rows = await getArchivedNews({ daysBack: 7, limit: 500 });
-    let items = mapArchiveRows(rows);
-
-    // Always supplement with live data + dedup to avoid duplicates
-    try {
-      const liveItems = await fetchLiveNews();
-      if (liveItems.length > 0) {
-        const seen = new Set<string>();
-        items = [...liveItems, ...items].filter(item => {
-          const key = (item.rich_text || '').slice(0, 80).trim();
-          if (!key || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-      }
-    } catch (liveErr) {
-      console.error('[index] Live supplement failed:', liveErr.message);
-    }
-
-    // Filter to last 7 days only
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    items = items.filter(item => {
-      const d = item.published_at ? new Date(item.published_at) : null;
-      return d && d.getTime() > weekAgo;
-    });
-
+    // Build the absolute URL for server-side fetch
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/news`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
     return {
-      props: { items, error: null },
-      revalidate: 1800,
+      props: {
+        todayItems: data.todayItems || [],
+        pastDates: data.pastDates || [],
+        today: data.today || '',
+        error: null,
+      },
+      revalidate: 300,
     };
   } catch (e) {
     console.error("Failed to fetch news:", e);
     return {
-      props: { items: [], error: "暂时无法获取最新新闻，请稍后刷新页面" },
+      props: { todayItems: [], pastDates: [], today: '', error: "暂时无法获取最新新闻，请稍后刷新页面" },
       revalidate: 60,
     };
   }

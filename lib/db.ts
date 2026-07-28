@@ -249,6 +249,33 @@ export async function getArchivedNews({ daysBack = 7, limit = 500 } = {}) {
   return result.rows;
 }
 
+/** Get list of distinct dates with news in the past N days. */
+export async function getAvailableDates(daysBack = 7) {
+  const db = await getDb();
+  const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `SELECT DISTINCT DATE(published_at) as date FROM news_archive
+          WHERE published_at >= ?
+          ORDER BY date DESC`,
+    args: [since],
+  });
+  return result.rows.map(r => r.date);
+}
+
+/** Get news for a specific date. */
+export async function getNewsByDate(date: string, limit = 200) {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `SELECT id, source, source_id, title, content, published_at
+          FROM news_archive
+          WHERE DATE(published_at) = ?
+          ORDER BY published_at DESC
+          LIMIT ?`,
+    args: [date, limit],
+  });
+  return result.rows;
+}
+
 // --- Analysis CRUD ---
 
 /** Insert an analysis result. */
