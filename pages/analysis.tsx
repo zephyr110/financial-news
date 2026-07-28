@@ -40,6 +40,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
   const [threads, setThreads] = useState(ssgThreads || []);
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [cardFilter, setCardFilter] = useState(null);
   const [scoreFilter, setScoreFilter] = useState(null);
   const [trendHours, setTrendHours] = useState(168);
@@ -62,6 +64,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       setHeatmap(data.heatmap || []);
       setTrend(data.trend || []);
       setThreads(data.threads || []);
+      setNextCursor(data.nextCursor || null);
     } catch (e) {
       if (e.name === "AbortError") return;
       console.error("Analysis refresh failed:", e);
@@ -79,6 +82,22 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
   // Apply industry filter first, then score/card filters on top
   const watchedItems = useMemo(() => filterByWatched(items), [items, filterByWatched]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/analysis?hoursBack=24&cursor=${nextCursor}&trendHours=${trendHours}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setItems(prev => [...prev, ...(data.items || [])]);
+      setNextCursor(data.nextCursor || null);
+    } catch (e) {
+      console.error('Load more failed:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore, trendHours]);
 
   const filteredItems = useMemo(() => {
     return applyFilters(watchedItems, cardFilter, scoreFilter, stats?.max_score || 0);
@@ -140,7 +159,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
                     信号分类占比
                   </h3>
-                  <CategoryDonutChart items={watchedItems} />
+                  <CategoryDonutChart items={watchedItems} totalSignals={stats?.total_signals} />
                 </div>
               </div>
 
@@ -156,9 +175,6 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                 </div>
               )}
 
-              <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-              </div>
             </ClientOnly>
           )}
 
@@ -169,7 +185,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
             信号时间线 {filteredItems.length > 0 && `(${filteredItems.length})`}
           </h3>
-          <SignalTimeline items={filteredItems} />
+          <SignalTimeline
+            items={filteredItems}
+            hasMore={!!nextCursor && !cardFilter && !scoreFilter}
+            loading={loadingMore}
+            onLoadMore={loadMore}
+          />
         </div>
       </div>
     </>

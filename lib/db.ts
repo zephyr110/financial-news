@@ -316,7 +316,7 @@ export async function insertAnalysis({
 }
 
 /** Get analyzed news with their original content, joined. */
-export async function getAnalyzedNews({ minScore = 1, limit = 100, hoursBack = 24 } = {}) {
+export async function getAnalyzedNews({ minScore = 1, limit = 50, hoursBack = 24, cursor = 0 } = {}) {
   const db = await getDb();
   const safeHours = Number.isFinite(hoursBack) && hoursBack > 0 ? hoursBack : 24;
   const safeMin = Number.isFinite(minScore) ? Math.min(5, Math.max(1, minScore)) : 1;
@@ -329,10 +329,11 @@ export async function getAnalyzedNews({ minScore = 1, limit = 100, hoursBack = 2
       JOIN analysis_result a ON a.news_id = n.id
       WHERE a.signal_score >= ?
         AND n.published_at >= ?
+        AND a.id < ?
       ORDER BY a.signal_score DESC, n.published_at DESC
       LIMIT ?
     `,
-    args: [safeMin, since, limit],
+    args: [safeMin, since, cursor || 9999999, limit],
   });
   return result.rows;
 }

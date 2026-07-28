@@ -1,6 +1,14 @@
+import { Loader2 } from "lucide-react";
 import AnalysisNewsCard from './AnalysisNewsCard';
 
-export default function SignalTimeline({ items }) {
+interface Props {
+  items: any[];
+  hasMore?: boolean;
+  loading?: boolean;
+  onLoadMore?: () => void;
+}
+
+export default function SignalTimeline({ items, hasMore, loading, onLoadMore }: Props) {
   if (!items || items.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground text-sm">
@@ -10,10 +18,26 @@ export default function SignalTimeline({ items }) {
   }
 
   return (
-    <ul className="space-y-4 list-none">
-      {items.map((item) => (
-        <li key={item.id}><AnalysisNewsCard item={item} /></li>
-      ))}
-    </ul>
+    <div>
+      <ul className="space-y-4 list-none">
+        {items.map((item) => (
+          <li key={item.id}><AnalysisNewsCard item={item} /></li>
+        ))}
+      </ul>
+
+      {hasMore && (
+        <div className="flex justify-center pt-4 pb-2">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground bg-card border hover:border-primary/50 transition-all disabled:opacity-50"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? '加载中…' : '加载更多'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
