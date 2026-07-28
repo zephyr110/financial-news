@@ -5,7 +5,6 @@ import ScoreFilter from "../components/ScoreFilter";
 import IndustryBarChart from "../components/IndustryBarChart";
 import IndustryTrendChart from "../components/IndustryTrendChart";
 import CategoryDonutChart from "../components/CategoryDonutChart";
-import WordCloud from "../components/WordCloud";
 import EventThreadList from "../components/EventThreadList";
 import TimeRangeFilter from "../components/TimeRangeFilter";
 import ClientOnly from "../components/ClientOnly";
@@ -159,9 +158,6 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
               <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
                 <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  焦点热词
-                </h3>
-                <WordCloud items={watchedItems} />
               </div>
             </ClientOnly>
           )}
