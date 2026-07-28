@@ -83,8 +83,13 @@ describe('todayKey', () => {
 })
 
 describe('formatDayLabel', () => {
-  it('formats a date key', () => {
-    expect(formatDayLabel('2026-07-25')).toContain('07/25')
+  it('formats same-year date as MM/DD', () => {
+    const thisYear = new Date().getFullYear()
+    expect(formatDayLabel(`${thisYear}-07-25`)).toContain('07/25')
+  })
+
+  it('formats cross-year date as YYYY/MM/DD', () => {
+    expect(formatDayLabel('2025-12-31')).toBe('2025/12/31 · 周三')
   })
 
   it('returns "今天" for today', () => {

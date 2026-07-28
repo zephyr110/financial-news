@@ -66,5 +66,9 @@ export function formatDayLabel(key) {
   if (key === todayKey()) return '今天';
   const d = new Date(`${key}T12:00:00+08:00`);
   const week = d.toLocaleDateString('zh-CN', { timeZone: TZ, weekday: 'short' });
-  return `${key.slice(5).replace('-', '/')} · ${week}`;
+  // Include year for dates from a different year
+  const thisYear = new Date().getFullYear();
+  const dateYear = d.getFullYear();
+  const datePart = dateYear !== thisYear ? key.replace(/-/g, '/') : key.slice(5).replace('-', '/');
+  return `${datePart} · ${week}`;
 }
