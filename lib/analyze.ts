@@ -320,7 +320,6 @@ export async function detectEventThreads(hoursBack = 24) {
     const { content } = await chatCompletion({
       systemPrompt: EVENT_THREAD_PROMPT,
       userMessage: `以下是过去${hoursBack}小时内的重要财经新闻：\n\n${userMessages}\n\n请识别其中的事件线索。`,
-      maxTokens: LLM_CONFIG.maxTokens,
     });
 
     let parsed;
