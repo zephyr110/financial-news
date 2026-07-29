@@ -13,26 +13,22 @@ interface BacktestRow {
 }
 
 export default function BacktestPanel() {
-  const [byScore, setByScore] = useState<BacktestRow[] | null>(null);
   const [byIndustry, setByIndustry] = useState<BacktestRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!open && byScore === null) return;
-    if (byScore !== null) return;
+    if (!open && byIndustry === null) return;
+    if (byIndustry !== null) return;
     setLoading(true);
     fetch("/api/backtest")
       .then(r => r.json())
-      .then(d => {
-        setByScore(d.byScore || []);
-        setByIndustry(d.byIndustry || []);
-      })
-      .catch(() => { setByScore([]); setByIndustry([]); })
+      .then(d => { setByIndustry(d.byIndustry || []); })
+      .catch(() => { setByIndustry([]); })
       .finally(() => setLoading(false));
-  }, [open, byScore]);
+  }, [open, byIndustry]);
 
-  const hasData = byScore && byScore.length > 0;
+  const hasData = byIndustry && byIndustry.length > 0;
 
   return (
     <div className="bg-card border rounded-xl mb-6 overflow-hidden">
@@ -72,55 +68,25 @@ export default function BacktestPanel() {
             </div>
           ) : (
             <>
-              {/* Score-level summary */}
-              <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mb-2">按信号评分</h4>
-              <div className="hidden sm:grid grid-cols-[64px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
+              <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mb-2">按行业（样本≥3）</h4>
+              <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
+                <span>行业</span>
                 <span>评分</span>
                 <span>T+1</span>
                 <span>T+3</span>
-                <span>T+7</span>
                 <span>胜率</span>
               </div>
-
-              {byScore!.sort((a, b) => (b.signal_score || 0) - (a.signal_score || 0)).map(row => (
-                <div key={row.signal_score}
-                  className="grid grid-cols-[48px_1fr] sm:grid-cols-[64px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors">
-                  <ScoreBadge score={row.signal_score!} />
-                  <div className="sm:hidden flex flex-col gap-0.5">
-                    <span className="text-[11px] text-muted-foreground">T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}</span>
-                    <span className="text-[10px] text-muted-foreground">胜率 {row.win_rate}% · 样本 {row.samples}</span>
-                  </div>
+              {byIndustry!.slice(0, 10).map((row, i) => (
+                <div key={`${row.industry}-${row.signal_score}`}
+                  className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors">
+                  <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">{row.industry}</span>
+                  <ScoreBadge score={row.signal_score!} small />
+                  <div className="sm:hidden text-[11px] text-muted-foreground">T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}</div>
                   <ReturnCell value={row.avg_d1} />
                   <ReturnCell value={row.avg_d3} />
-                  <ReturnCell value={row.avg_d7} />
                   <WinRateCell rate={row.win_rate} />
                 </div>
               ))}
-
-              {/* Industry-level detail */}
-              {byIndustry && byIndustry.length > 0 && (
-                <>
-                  <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mt-4 mb-2">按行业（样本≥3）</h4>
-                  <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
-                    <span>行业</span>
-                    <span>评分</span>
-                    <span>T+1</span>
-                    <span>T+3</span>
-                    <span>胜率</span>
-                  </div>
-                  {byIndustry!.slice(0, 10).map((row, i) => (
-                    <div key={`${row.industry}-${row.signal_score}`}
-                      className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors">
-                      <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">{row.industry}</span>
-                      <ScoreBadge score={row.signal_score!} small />
-                      <div className="sm:hidden text-[11px] text-muted-foreground">T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}</div>
-                      <ReturnCell value={row.avg_d1} />
-                      <ReturnCell value={row.avg_d3} />
-                      <WinRateCell rate={row.win_rate} />
-                    </div>
-                  ))}
-                </>
-              )}
             </>
           )}
         </div>
