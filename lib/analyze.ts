@@ -306,8 +306,8 @@ export async function detectEventThreads(hoursBack = 24) {
 
   const news = await getHighSignalNews(hoursBack, 80);
   if (news.length < 5) {
-    console.log('[event-threads] Not enough high-signal news for thread detection.');
-    return { threads: [] };
+    console.log(`[event-threads] Not enough high-signal news (${news.length}/5 required) for thread detection.`);
+    return { threads: [], highSignalCount: news.length };
   }
 
   console.log(`[event-threads] Analyzing ${news.length} high-signal items for event threads...`);
@@ -340,9 +340,9 @@ export async function detectEventThreads(hoursBack = 24) {
     if (threads.length > 0) {
       await saveEventThreads(threads);
     }
-    return { threads };
+    return { threads, highSignalCount: news.length };
   } catch (err) {
     console.error('[event-threads] Failed:', err.message);
-    return { threads: [], error: err.message };
+    return { threads: [], highSignalCount: news.length, error: err.message };
   }
 }

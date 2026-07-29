@@ -61,7 +61,7 @@ export async function fetchMarketData() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const d = json?.data;
-      if (!d || !d.f43) continue; // f43 = latest price, skip if missing
+      if (!d || d.f43 == null) continue; // f43 = latest price, skip if missing
 
       // Calculate change_pct from f169 (涨跌额) and f43 (最新价):
       //   prevClose = f43 - f169
@@ -72,6 +72,8 @@ export async function fetchMarketData() {
         const prevClose = d.f43 - d.f169;
         if (prevClose > 0) {
           changePct = (d.f169 / prevClose) * 100;
+        } else {
+          console.warn(`[market] Invalid prevClose=${prevClose} for ${d.f58} (f43=${d.f43}, f169=${d.f169})`);
         }
       }
       // Log if value seems extreme (possible data corruption), but don't drop

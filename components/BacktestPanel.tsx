@@ -80,7 +80,7 @@ export default function BacktestPanel() {
                 <div key={`${row.industry}-${row.signal_score}`}
                   className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors">
                   <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">{row.industry}</span>
-                  <ScoreBadge score={row.signal_score!} small />
+                  <ScoreBadge score={row.signal_score} />
                   <div className="sm:hidden text-[11px] text-muted-foreground">T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}</div>
                   <ReturnCell value={row.avg_d1} />
                   <ReturnCell value={row.avg_d3} />
@@ -95,11 +95,11 @@ export default function BacktestPanel() {
   );
 }
 
-function ScoreBadge({ score, small }: { score: number; small?: boolean }) {
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null) return <span className="w-6 h-6" />;
   return (
     <span className={cn(
-      "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0",
-      small ? "w-6 h-6 text-[10px]" : "w-8 h-8",
+      "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0 w-6 h-6 text-[10px]",
       score >= 5 ? "bg-red-600 text-white" :
       score >= 4 ? "bg-orange-500 text-white" :
       "bg-yellow-500 text-white"
