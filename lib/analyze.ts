@@ -334,7 +334,6 @@ export async function detectEventThreads(hoursBack = 24) {
         parsed = JSON.parse(jsonrepair(raw));
       } catch { parsed = {}; parseMethod = 'fallback'; }
     }
-    }
     const threads = parsed?.event_threads || [];
     console.log(`[event-threads] Detected ${threads.length} event threads (parse: ${parseMethod}).`);
     if (threads.length > 0) {
