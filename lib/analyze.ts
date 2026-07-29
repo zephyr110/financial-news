@@ -324,23 +324,34 @@ export async function detectEventThreads(hoursBack = 24) {
     });
 
     let parsed;
+    let parseMethod = 'direct';
     try { parsed = JSON.parse(content); } catch {
       const m = content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (m) {
+        parseMethod = 'code-block';
         try { parsed = JSON.parse(m[1]); } catch { parsed = {}; }
       } else {
         // Find the first complete JSON object (lazy match to avoid merging multiple objects)
         const objMatch = content.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
-        if (objMatch) { try { parsed = JSON.parse(objMatch[0]); } catch { parsed = {}; } }
-        else parsed = {};
+        if (objMatch) {
+          parseMethod = 'regex';
+          try { parsed = JSON.parse(objMatch[0]); } catch { parsed = {}; }
+        } else {
+          parseMethod = 'fallback';
+          parsed = {};
+        }
       }
     }
     const threads = parsed?.event_threads || [];
-    console.log(`[event-threads] Detected ${threads.length} event threads.`);
+    console.log(`[event-threads] Detected ${threads.length} event threads (parse: ${parseMethod}).`);
     if (threads.length > 0) {
       await saveEventThreads(threads);
     }
-    return { threads, highSignalCount: news.length };
+    return {
+      threads,
+      highSignalCount: news.length,
+      debug: { parseMethod, contentPreview: content.slice(0, 300) },
+    };
   } catch (err) {
     console.error('[event-threads] Failed:', err.message);
     return { threads: [], highSignalCount: news.length, error: err.message };
