@@ -339,10 +339,29 @@ export async function detectEventThreads(hoursBack = 24) {
     if (threads.length > 0) {
       await saveEventThreads(threads);
     }
+    // Check if LLM response was truncated (unclosed braces/brackets)
+    let openBraces = 0, openBrackets = 0, inStr = false, esc = false;
+    for (const ch of content) {
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === '{') openBraces++;
+      if (ch === '}') openBraces--;
+      if (ch === '[') openBrackets++;
+      if (ch === ']') openBrackets--;
+    }
+    const isTruncated = openBraces !== 0 || openBrackets !== 0;
+
     return {
       threads,
       highSignalCount: news.length,
-      debug: { parseMethod, contentPreview: content.slice(0, 500) },
+      debug: {
+        parseMethod,
+        contentLength: content.length,
+        isTruncated,
+        contentPreview: content.slice(0, 500),
+      },
     };
   } catch (err) {
     console.error('[event-threads] Failed:', err.message);
