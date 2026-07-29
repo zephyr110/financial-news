@@ -516,8 +516,8 @@ export async function saveEventThreads(threads) {
         t.narrative || '',
         t.stage || 'early',
         t.confidence || 'medium',
-        t.related_industries ? JSON.stringify(t.related_industries) : null,
-        t.key_watch_points ? JSON.stringify(t.key_watch_points) : null,
+        t.related_industries ? JSON.stringify(t.related_industries) : '[]',
+        t.key_watch_points ? JSON.stringify(t.key_watch_points) : '[]',
       ],
     });
   }
