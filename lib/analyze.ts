@@ -320,7 +320,7 @@ export async function detectEventThreads(hoursBack = 24) {
     const { content } = await chatCompletion({
       systemPrompt: EVENT_THREAD_PROMPT,
       userMessage: `以下是过去${hoursBack}小时内的重要财经新闻：\n\n${userMessages}\n\n请识别其中的事件线索。`,
-      maxTokens: 2048,
+      maxTokens: 4096,
     });
 
     let parsed;
@@ -331,15 +331,21 @@ export async function detectEventThreads(hoursBack = 24) {
         parseMethod = 'code-block';
         try { parsed = JSON.parse(m[1]); } catch { parsed = {}; }
       } else {
-        // Find the first complete JSON object (lazy match to avoid merging multiple objects)
-        const objMatch = content.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
-        if (objMatch) {
-          parseMethod = 'regex';
-          try { parsed = JSON.parse(objMatch[0]); } catch { parsed = {}; }
-        } else {
-          parseMethod = 'fallback';
-          parsed = {};
+        // Extract the first complete JSON object with proper brace counting
+        const start = content.indexOf('{');
+        if (start !== -1) {
+          let depth = 0, inString = false, escape = false;
+          for (let i = start; i < content.length; i++) {
+            const ch = content[i];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\') { escape = true; continue; }
+            if (ch === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (ch === '{') depth++;
+            if (ch === '}') { depth--; if (depth === 0) { parseMethod = 'brace-count'; try { parsed = JSON.parse(content.slice(start, i + 1)); } catch { parsed = {}; } break; } }
+          }
         }
+        if (!parseMethod) { parseMethod = 'fallback'; parsed = {}; }
       }
     }
     const threads = parsed?.event_threads || [];
@@ -350,7 +356,7 @@ export async function detectEventThreads(hoursBack = 24) {
     return {
       threads,
       highSignalCount: news.length,
-      debug: { parseMethod, contentPreview: content.slice(0, 300) },
+      debug: { parseMethod, contentPreview: content.slice(0, 500) },
     };
   } catch (err) {
     console.error('[event-threads] Failed:', err.message);
