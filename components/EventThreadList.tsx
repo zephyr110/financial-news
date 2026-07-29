@@ -32,11 +32,14 @@ export default function EventThreadList({ threads }) {
           暂无事件线索，数据分析完成后自动生成
         </p>
       ) : (
-        <div className="space-y-3">
-          {threads.map((thread) => (
-            <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-3">
+            {threads.map((thread) => (
+              <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3">基于近24小时高信号新闻生成</p>
+        </>
       )}
     </div>
   );
