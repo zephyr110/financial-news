@@ -71,6 +71,7 @@ async function initSchema(db) {
 
     CREATE INDEX IF NOT EXISTS idx_analysis_score    ON analysis_result(signal_score);
     CREATE INDEX IF NOT EXISTS idx_analysis_category ON analysis_result(category);
+    CREATE INDEX IF NOT EXISTS idx_analysis_news     ON analysis_result(news_id);
 
     CREATE TABLE IF NOT EXISTS event_threads (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -546,4 +547,385 @@ function tryParseJson(str) {
     const parsed = JSON.parse(str);
     return Array.isArray(parsed) ? parsed : [];
   } catch { return []; }
+}
+
+// ── F2: Signal Detail ──
+
+/**
+ * Get a single signal's full detail, joining news_archive and event_threads.
+ * Returns null if the signal ID does not exist.
+ */
+export async function getSignalById(id: number) {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `
+      SELECT a.*, n.source, n.content as news_content, n.published_at,
+             et.title as thread_title, et.stage as thread_stage, et.confidence as thread_confidence,
+             et.id as thread_id
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      LEFT JOIN event_threads et ON et.id = (
+        SELECT e2.id FROM event_threads e2
+        WHERE EXISTS (
+          SELECT 1 FROM json_each(e2.news_ids) AS j WHERE j.value = a.id
+        )
+        ORDER BY e2.created_at DESC
+        LIMIT 1
+      )
+      WHERE a.id = ?
+    `,
+    args: [id],
+  });
+  if (result.rows.length === 0) return null;
+
+  const row: Record<string, unknown> = result.rows[0] as Record<string, unknown>;
+  return {
+    id: rowId(row.id),
+    news_id: rowId(row.news_id),
+    signal_score: row.signal_score,
+    category: row.category,
+    impact_level: row.impact_level,
+    sentiment: row.sentiment,
+    summary: row.summary,
+    deep_analysis: row.deep_analysis || null,
+    industries: tryParseJson(row.industries as string),
+    companies: tryParseJson(row.companies as string),
+    tags: tryParseJson(row.tags as string),
+    analyzed_at: row.analyzed_at,
+    // from news_archive
+    source: row.source,
+    content: row.news_content,
+    published_at: row.published_at,
+    // from event_threads (conditionally present)
+    event_thread: (row.thread_id != null)
+      ? {
+          id: rowId(row.thread_id),
+          title: row.thread_title,
+          stage: row.thread_stage,
+          confidence: row.thread_confidence,
+        }
+      : null,
+  };
+}
+
+/**
+ * Get signals related to the given signal — same industries or companies,
+ * excluding the signal itself. Returns the most recent matches.
+ */
+export async function getRelatedSignals(
+  id: number,
+  industries: string[],
+  companies: string[],
+  limit = 5,
+) {
+  const db = await getDb();
+
+  // Build LIKE clauses from industries and companies
+  const conditions: string[] = [];
+  const args: (string | number)[] = [];
+
+  for (const ind of industries) {
+    conditions.push("a.industries LIKE ? ESCAPE '\\'");
+    args.push(`%${ind}%`);
+  }
+  for (const comp of companies) {
+    conditions.push("a.companies LIKE ? ESCAPE '\\'");
+    args.push(`%${comp}%`);
+  }
+
+  if (conditions.length === 0) return [];
+
+  args.push(id, limit);
+
+  const result = await db.execute({
+    sql: `
+      SELECT a.id, a.signal_score, a.category, a.industries, a.summary, n.published_at
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      WHERE (${conditions.join(" OR ")})
+        AND a.id != ?
+        AND a.signal_score >= 3
+      ORDER BY n.published_at DESC
+      LIMIT ?
+    `,
+    args,
+  });
+
+  return result.rows.map((row: Record<string, unknown>) => ({
+    id: rowId(row.id),
+    signal_score: row.signal_score,
+    category: row.category,
+    industries: tryParseJson(row.industries as string),
+    summary: row.summary,
+    published_at: row.published_at,
+  }));
+}
+
+// ── F3: Search ──
+
+/**
+ * Search signals by keyword across content, summary, deep_analysis, industries, companies.
+ * Supports optional score and time-range filtering with cursor-based pagination.
+ */
+export async function searchSignals({
+  query,
+  minScore = 1,
+  hoursBack = 720,
+  cursor,
+  limit = 20,
+}: {
+  query: string;
+  minScore?: number;
+  hoursBack?: number;
+  cursor?: number | null;
+  limit?: number;
+}) {
+  const db = await getDb();
+  const safeQuery = String(query).trim();
+  if (safeQuery.length < 2) return { items: [], nextCursor: null, total: 0 };
+
+  const safeHours = Number.isFinite(hoursBack) ? Math.min(hoursBack, 2160) : 720;
+  const safeMin = Number.isFinite(minScore) ? Math.min(5, Math.max(1, minScore)) : 1;
+  const safeLimit = Math.min(limit || 20, 50);
+  const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
+  const offset = cursor || 0;
+
+  // Escape LIKE special characters for literal matching
+  const escaped = safeQuery
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+  const likePattern = `%${escaped}%`;
+
+  const countResult = await db.execute({
+    sql: `
+      SELECT COUNT(*) as total
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      WHERE n.published_at >= ?
+        AND a.signal_score >= ?
+        AND (
+          n.content LIKE ? ESCAPE '\\'
+          OR a.summary LIKE ? ESCAPE '\\'
+          OR a.deep_analysis LIKE ? ESCAPE '\\'
+          OR a.industries LIKE ? ESCAPE '\\'
+          OR a.companies LIKE ? ESCAPE '\\'
+        )
+    `,
+    args: [since, safeMin, likePattern, likePattern, likePattern, likePattern, likePattern],
+  });
+
+  const total = (countResult.rows[0] as Record<string, unknown>)?.total as number || 0;
+
+  const result = await db.execute({
+    sql: `
+      SELECT a.id, a.signal_score, a.category, a.impact_level, a.industries, a.companies,
+             a.sentiment, a.summary, n.content as news_content, n.source, n.published_at
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      WHERE n.published_at >= ?
+        AND a.signal_score >= ?
+        AND (
+          n.content LIKE ? ESCAPE '\\'
+          OR a.summary LIKE ? ESCAPE '\\'
+          OR a.deep_analysis LIKE ? ESCAPE '\\'
+          OR a.industries LIKE ? ESCAPE '\\'
+          OR a.companies LIKE ? ESCAPE '\\'
+        )
+      ORDER BY a.signal_score DESC, n.published_at DESC
+      LIMIT ? OFFSET ?
+    `,
+    args: [since, safeMin, likePattern, likePattern, likePattern, likePattern, likePattern, safeLimit + 1, offset],
+  });
+
+  const rows = result.rows.slice(0, safeLimit);
+  const hasMore = result.rows.length > safeLimit;
+
+  const items = rows.map((row: Record<string, unknown>) => ({
+    id: rowId(row.id),
+    signal_score: row.signal_score,
+    category: row.category,
+    impact_level: row.impact_level,
+    industries: tryParseJson(row.industries as string),
+    companies: tryParseJson(row.companies as string),
+    sentiment: row.sentiment,
+    summary: row.summary,
+    source: row.source,
+    published_at: row.published_at,
+  }));
+
+  return {
+    items,
+    nextCursor: hasMore ? offset + safeLimit : null,
+    total,
+  };
+}
+
+// ── F4: Stats with Trend Comparison ──
+
+/**
+ * Get analysis stats for two time windows, enabling period-over-period comparison.
+ * `currentHoursBack` is the main window; `previousHoursBack` is the comparison window
+ * ending where the current window begins.
+ */
+export async function getAnalysisStatsWithComparison(
+  currentHoursBack = 24,
+  previousHoursBack = 24,
+) {
+  const db = await getDb();
+  const safeCur = Number.isFinite(currentHoursBack) ? Math.min(currentHoursBack, 720) : 24;
+  const safePrev = Number.isFinite(previousHoursBack) ? Math.min(previousHoursBack, 720) : 24;
+  const now = Date.now();
+  const currentSince = new Date(now - safeCur * 60 * 60 * 1000).toISOString();
+  const previousSince = new Date(now - (safeCur + safePrev) * 60 * 60 * 1000).toISOString();
+  const previousUntil = currentSince;
+
+  const queryStats = (since: string, until?: string) => {
+    const conditions = until
+      ? `n.published_at >= ? AND n.published_at < ?`
+      : `n.published_at >= ?`;
+    const args: string[] = until ? [since, until] : [since];
+    return db.execute({
+      sql: `
+        SELECT
+          COUNT(*) as total_signals,
+          COALESCE(MAX(a.signal_score), 0) as max_score,
+          COALESCE(SUM(CASE WHEN a.signal_score = 5 THEN 1 ELSE 0 END), 0) as critical_count,
+          COALESCE(SUM(CASE WHEN a.signal_score = 4 THEN 1 ELSE 0 END), 0) as significant_count
+        FROM analysis_result a
+        JOIN news_archive n ON n.id = a.news_id
+        WHERE ${conditions}
+      `,
+      args,
+    });
+  };
+
+  const [currentResult, previousResult] = await Promise.all([
+    queryStats(currentSince),
+    queryStats(previousSince, previousUntil),
+  ]);
+
+  const defaultStats = { total_signals: 0, max_score: 0, critical_count: 0, significant_count: 0 };
+
+  return {
+    current: (currentResult.rows[0] as Record<string, unknown>) || defaultStats,
+    previous: (previousResult.rows[0] as Record<string, unknown>) || defaultStats,
+  };
+}
+
+// ── F6: Company Dimension ──
+
+/**
+ * Get company-level signal aggregation for the heatmap (top 10 companies by mention count).
+ * Only includes signals with score >= 3.
+ */
+export async function getCompanyHeatmap(hoursBack = 24) {
+  const db = await getDb();
+  const safeHours = Number.isFinite(hoursBack) && hoursBack > 0 ? hoursBack : 24;
+  const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `
+      SELECT a.companies, a.signal_score
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      WHERE n.published_at >= ?
+        AND a.signal_score >= 3
+        AND a.companies IS NOT NULL
+    `,
+    args: [since],
+  });
+
+  const companyMap = new Map<string, { count: number; scoreSum: number }>();
+  for (const row of result.rows) {
+    const companies = tryParseJson(row.companies as string);
+    for (const comp of companies) {
+      if (!companyMap.has(comp)) {
+        companyMap.set(comp, { count: 0, scoreSum: 0 });
+      }
+      const entry = companyMap.get(comp)!;
+      entry.count++;
+      entry.scoreSum += (row.signal_score as number);
+    }
+  }
+
+  return Array.from(companyMap.entries())
+    .map(([name, data]) => ({
+      company: name,
+      signalCount: data.count,
+      avgScore: Math.round((data.scoreSum / data.count) * 10) / 10,
+    }))
+    .sort((a, b) => b.signalCount - a.signalCount)
+    .slice(0, 10);
+}
+
+// ── F7: Backtest by Industry ──
+
+/**
+ * Get backtest summary grouped by industry (instead of signal_score).
+ * Only returns industries with at least 5 samples.
+ */
+export async function getBacktestByIndustry(daysBack = 90) {
+  const db = await getDb();
+  const safeDays = Number.isFinite(daysBack) ? Math.max(1, daysBack) : 90;
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const result = await db.execute({
+    sql: `
+      SELECT industry,
+             COUNT(*) as samples,
+             ROUND(AVG(day_1_return), 2) as avg_d1,
+             ROUND(AVG(day_3_return), 2) as avg_d3,
+             ROUND(AVG(day_7_return), 2) as avg_d7,
+             ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
+      FROM backtest_result
+      WHERE day_1_return IS NOT NULL
+        AND industry IS NOT NULL
+        AND signal_date >= ?
+      GROUP BY industry
+      HAVING COUNT(*) >= 5
+      ORDER BY samples DESC
+    `,
+    args: [since],
+  });
+
+  return result.rows.map((row: Record<string, unknown>) => ({
+    industry: row.industry,
+    samples: row.samples,
+    avg_d1: row.avg_d1,
+    avg_d3: row.avg_d3,
+    avg_d7: row.avg_d7,
+    win_rate: row.win_rate,
+  }));
+}
+
+/**
+ * Get high-score signals for ISR pre-rendering (F2: getStaticPaths).
+ * Returns signal IDs with score >= minScore from the past daysBack days.
+ */
+export async function getHighScoreSignals({
+  daysBack = 7,
+  minScore = 4,
+  limit = 200,
+}: {
+  daysBack?: number;
+  minScore?: number;
+  limit?: number;
+} = {}) {
+  const db = await getDb();
+  const safeDays = Number.isFinite(daysBack) ? Math.min(daysBack, 90) : 7;
+  const safeMin = Number.isFinite(minScore) ? Math.min(5, Math.max(1, minScore)) : 4;
+  const safeLimit = Number.isFinite(limit) ? Math.min(limit, 500) : 200;
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `
+      SELECT a.id
+      FROM analysis_result a
+      JOIN news_archive n ON n.id = a.news_id
+      WHERE n.published_at >= ?
+        AND a.signal_score >= ?
+      ORDER BY a.signal_score DESC, n.published_at DESC
+      LIMIT ?
+    `,
+    args: [since, safeMin, safeLimit],
+  });
+  return result.rows.map((r: Record<string, unknown>) => ({ id: rowId(r.id) }));
 }

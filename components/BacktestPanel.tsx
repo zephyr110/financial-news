@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Loader2, ChevronDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, ChevronDown, Building2, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BacktestRow {
@@ -12,23 +12,40 @@ interface BacktestRow {
   win_rate: number;
 }
 
+type TabKey = "score" | "industry";
+
 export default function BacktestPanel() {
+  const [byScore, setByScore] = useState<BacktestRow[] | null>(null);
   const [byIndustry, setByIndustry] = useState<BacktestRow[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true); // default expanded
+  const [tab, setTab] = useState<TabKey>("industry");
 
   useEffect(() => {
     if (!open && byIndustry === null) return;
     if (byIndustry !== null) return;
+    let cancelled = false;
     setLoading(true);
     fetch("/api/backtest")
-      .then(r => r.json())
-      .then(d => { setByIndustry(d.byIndustry || []); })
-      .catch(() => { setByIndustry([]); })
-      .finally(() => setLoading(false));
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setByScore(d.byScore || []);
+        setByIndustry(d.byIndustry || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setByScore([]);
+        setByIndustry([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [open, byIndustry]);
 
-  const hasData = byIndustry && byIndustry.length > 0;
+  const activeData = tab === "score" ? byScore : byIndustry;
+  const hasData = activeData && activeData.length > 0;
 
   return (
     <div className="bg-card border rounded-xl mb-6 overflow-hidden">
@@ -39,14 +56,17 @@ export default function BacktestPanel() {
       >
         <div className="min-w-0 flex-1">
           <h3 className="text-xs sm:text-sm font-medium text-foreground">
-            信号回测
+            信号有效性回测
           </h3>
           <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
             信号出现后行业指数后续涨跌幅 · 近 90 天
           </p>
         </div>
         <ChevronDown
-          className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", open && "rotate-180")}
+          className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+            open && "rotate-180"
+          )}
         />
       </button>
 
@@ -68,25 +88,90 @@ export default function BacktestPanel() {
             </div>
           ) : (
             <>
-              <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mb-2">各行业表现</h4>
+              {/* Tab switcher */}
+              <div className="flex items-center gap-1 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setTab("industry")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] sm:text-xs transition-colors",
+                    tab === "industry"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <Building2 className="h-3 w-3" />
+                  按行业
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("score")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] sm:text-xs transition-colors",
+                    tab === "score"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <Hash className="h-3 w-3" />
+                  按分数
+                </button>
+              </div>
+
+              {/* Header */}
               <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
-                <span>行业</span>
-                <span>评分</span>
+                <span>{tab === "industry" ? "行业" : "分数"}</span>
+                <span>{tab === "industry" ? "均分" : ""}</span>
                 <span>T+1</span>
                 <span>T+3</span>
+                <span>T+7</span>
                 <span>胜率</span>
               </div>
-              {byIndustry!.slice(0, 10).map((row, i) => (
-                <div key={`${row.industry}-${row.signal_score}`}
-                  className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors">
-                  <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">{row.industry}</span>
-                  <ScoreBadge score={row.signal_score} />
-                  <div className="sm:hidden text-[11px] text-muted-foreground">T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}</div>
-                  <ReturnCell value={row.avg_d1} />
-                  <ReturnCell value={row.avg_d3} />
-                  <WinRateCell rate={row.win_rate} />
-                </div>
-              ))}
+
+              {/* Industry view */}
+              {tab === "industry" &&
+                (byIndustry as BacktestRow[])
+                  ?.sort((a, b) => b.samples - a.samples)
+                  .slice(0, 15)
+                  .map((row, i) => (
+                    <div
+                      key={`${row.industry}-${row.signal_score}`}
+                      className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
+                    >
+                      <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">
+                        {row.industry}
+                      </span>
+                      <ScoreBadge score={row.signal_score} />
+                      <div className="sm:hidden text-[11px] text-muted-foreground">
+                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}
+                      </div>
+                      <ReturnCell value={row.avg_d1} />
+                      <ReturnCell value={row.avg_d3} />
+                      <ReturnCell value={row.avg_d7} />
+                      <WinRateCell rate={row.win_rate} />
+                    </div>
+                  ))}
+
+              {/* Score view */}
+              {tab === "score" &&
+                (byScore as BacktestRow[])
+                  ?.sort((a, b) => (b.signal_score ?? 0) - (a.signal_score ?? 0))
+                  .map((row, i) => (
+                    <div
+                      key={`score-${row.signal_score ?? "null"}-${i}`}
+                      className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
+                    >
+                      <ScoreBadge score={row.signal_score} />
+                      <span className="w-6" />
+                      <div className="sm:hidden text-[11px] text-muted-foreground">
+                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}
+                      </div>
+                      <ReturnCell value={row.avg_d1} />
+                      <ReturnCell value={row.avg_d3} />
+                      <ReturnCell value={row.avg_d7} />
+                      <WinRateCell rate={row.win_rate} />
+                    </div>
+                  ))}
             </>
           )}
         </div>
@@ -98,26 +183,45 @@ export default function BacktestPanel() {
 function ScoreBadge({ score }: { score: number | null | undefined }) {
   if (score == null) return <span className="w-6 h-6" />;
   return (
-    <span className={cn(
-      "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0 w-6 h-6 text-[10px]",
-      score >= 5 ? "bg-red-600 text-white" :
-      score >= 4 ? "bg-orange-500 text-white" :
-      "bg-yellow-500 text-white"
-    )}>{score}</span>
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0 w-6 h-6 text-[10px]",
+        score >= 5
+          ? "bg-red-600 text-white"
+          : score >= 4
+            ? "bg-orange-500 text-white"
+            : "bg-yellow-500 text-white"
+      )}
+    >
+      {score}
+    </span>
   );
 }
 
 function ReturnCell({ value }: { value: number }) {
-  if (value == null) return <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:block">—</span>;
+  if (value == null)
+    return (
+      <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:block">
+        —
+      </span>
+    );
   const isPositive = value > 0;
   return (
-    <span className={cn(
-      "hidden sm:flex items-center gap-1 text-[11px] sm:text-xs font-medium tabular-nums",
-      isPositive ? "text-emerald-600 dark:text-emerald-400" :
-      value < 0 ? "text-red-600 dark:text-red-400" :
-      "text-muted-foreground"
-    )}>
-      {isPositive ? <TrendingUp className="h-3 w-3" /> : value < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+    <span
+      className={cn(
+        "hidden sm:flex items-center gap-1 text-[11px] sm:text-xs font-medium tabular-nums",
+        isPositive
+          ? "text-emerald-600 dark:text-emerald-400"
+          : value < 0
+            ? "text-red-600 dark:text-red-400"
+            : "text-muted-foreground"
+      )}
+    >
+      {isPositive ? (
+        <TrendingUp className="h-3 w-3" />
+      ) : value < 0 ? (
+        <TrendingDown className="h-3 w-3" />
+      ) : null}
       {fmtPct(value)}
     </span>
   );
@@ -127,9 +231,14 @@ function WinRateCell({ rate }: { rate: number }) {
   return (
     <div className="hidden sm:flex items-center gap-1.5">
       <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${rate}%` }} />
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${rate}%` }}
+        />
       </div>
-      <span className="text-[10px] sm:text-[11px] font-medium tabular-nums w-9 text-right">{rate}%</span>
+      <span className="text-[10px] sm:text-[11px] font-medium tabular-nums w-9 text-right">
+        {rate}%
+      </span>
     </div>
   );
 }

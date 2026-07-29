@@ -1,5 +1,6 @@
 import { AlertTriangle, TrendingUp, Zap, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TrendDelta from "./TrendDelta";
 
 const CARDS = [
   {
@@ -42,22 +43,48 @@ const CARDS = [
 
 export default function AnalysisOverview({ stats, items, loading, filter, onFilterChange }) {
   const total = stats?.total_signals ?? 0;
+  const prev = stats?.previous;
+  const prevTotal = prev?.total_signals;
+
   const avgScore = total > 0 && items?.length
     ? (items.reduce((s, i) => s + i.signal_score, 0) / items.length).toFixed(1)
     : "—";
 
   const values = {
-    null: { value: avgScore, sub: `共 ${total} 条信号` },
-    critical: { value: stats?.critical_count ?? 0, sub: "需立即关注" },
-    significant: { value: stats?.significant_count ?? 0, sub: "含重要变化" },
-    max: { value: stats?.max_score ?? 0, sub: "今日峰值" },
+    null: {
+      value: avgScore,
+      sub: `共 ${total} 条信号`,
+      current: typeof avgScore === "string" ? parseFloat(avgScore) : avgScore,
+      previous: null, // no avgScore for previous period
+      // Use total_signals as trend proxy
+      trendCurrent: total,
+      trendPrevious: prevTotal ?? null,
+    },
+    critical: {
+      value: stats?.critical_count ?? 0,
+      sub: "需立即关注",
+      trendCurrent: stats?.critical_count ?? 0,
+      trendPrevious: prev?.critical_count ?? null,
+    },
+    significant: {
+      value: stats?.significant_count ?? 0,
+      sub: "含重要变化",
+      trendCurrent: stats?.significant_count ?? 0,
+      trendPrevious: prev?.significant_count ?? null,
+    },
+    max: {
+      value: stats?.max_score ?? 0,
+      sub: "今日峰值",
+      trendCurrent: stats?.max_score ?? 0,
+      trendPrevious: prev?.max_score ?? null,
+    },
   };
 
   return (
     <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 mb-6">
-      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }, idx) => {
+      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }) => {
         const active = filter === key;
-        const { value, sub } = values[key];
+        const { value, sub, trendCurrent, trendPrevious } = values[key];
 
         return (
           <button
@@ -100,6 +127,17 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
             )}>
               {sub}
             </div>
+
+            {/* Trend delta — show on a dark overlay for readability */}
+            {trendCurrent != null && trendPrevious != null && (
+              <div className="relative mt-1.5">
+                <TrendDelta
+                  current={trendCurrent as number}
+                  previous={trendPrevious as number}
+                  label="昨日"
+                />
+              </div>
+            )}
           </button>
         );
       })}

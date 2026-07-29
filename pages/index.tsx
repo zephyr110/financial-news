@@ -4,6 +4,7 @@ import NewsList from "../components/NewsList";
 import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
+import TodaySignalSummary from "../components/TodaySignalSummary";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
@@ -190,6 +191,8 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
 
           <ErrorBanner message={error} />
 
+          <TodaySignalSummary items={todayItems} />
+
           {todayItems.length > 0 ? (
             <NewsList todayItems={todayItems} pastDates={pastDates} />
           ) : (
@@ -205,7 +208,7 @@ export async function getStaticProps() {
   try {
     // Build the absolute URL for server-side fetch
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/news`);
+    const res = await fetch(`${baseUrl}/api/news?includeSignals=1`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return {

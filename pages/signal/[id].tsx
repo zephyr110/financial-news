@@ -1,0 +1,186 @@
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import SiteHeader from "../../components/SiteHeader";
+import SignalDetailComponent from "../../components/SignalDetail";
+import ErrorBanner from "../../components/ErrorBanner";
+import { getSignalById, getHighScoreSignals } from "../../lib/db";
+
+export default function SignalPage({ data: ssgData, error: ssgError }) {
+  const router = useRouter();
+  const [data, setData] = useState(ssgData || null);
+  const [error, setError] = useState(ssgError ?? null);
+  const [loading, setLoading] = useState(false);
+
+  // Fallback: fetch client-side if not pre-rendered
+  const { id } = router.query;
+
+  useEffect(() => {
+    if (ssgData) return; // already have SSG data
+    if (!id || !router.isReady) return;
+
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/signal/${id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status === 404 ? "NOT_FOUND" : `HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e.message === "NOT_FOUND" ? "信号不存在" : "加载失败，请稍后重试");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [id, router.isReady, ssgData]);
+
+  // Loading skeleton (fallback rendering)
+  if (loading) {
+    return (
+      <>
+        <Head><title>加载中… — 财经信号</title></Head>
+        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
+        <div className="min-h-screen bg-background">
+          <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
+            <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">加载中…</span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Error state
+  if (error && !data) {
+    return (
+      <>
+        <Head><title>信号详情 — 财经信号</title></Head>
+        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
+        <div className="min-h-screen bg-background">
+          <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
+            <Link
+              href="/analysis"
+              className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              返回分析面板
+            </Link>
+            <ErrorBanner message={error} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const signal = data?.signal;
+
+  return (
+    <>
+      <Head>
+        <title>
+          {signal
+            ? `${signal.summary?.slice(0, 40)} — 财经信号`
+            : "信号详情 — 财经信号"}
+        </title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="description"
+          content={
+            signal?.deep_analysis?.slice(0, 160) ||
+            signal?.summary?.slice(0, 160) ||
+            "AI 驱动的财经信号深度分析"
+          }
+        />
+      </Head>
+
+      <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
+
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
+          {/* Back link */}
+          <Link
+            href="/analysis"
+            className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            返回分析面板
+          </Link>
+
+          {signal ? (
+            <SignalDetailComponent
+              signal={signal}
+              related={data?.related || []}
+              backtest={data?.backtest || []}
+            />
+          ) : (
+            <div className="text-center py-20 text-sm text-muted-foreground">
+              信号不存在或已被移除
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * ISR: pre-render high-score signals, fallback for the rest.
+ */
+export async function getStaticPaths() {
+  try {
+    const signals = await getHighScoreSignals({ daysBack: 7, minScore: 4, limit: 200 });
+    return {
+      paths: signals.map((s: any) => ({ params: { id: String(s.id) } })),
+      fallback: true,
+    };
+  } catch {
+    return { paths: [], fallback: true };
+  }
+}
+
+export async function getStaticProps({ params }: { params: { id: string } }) {
+  const signalId = Number(params.id);
+
+  if (!Number.isFinite(signalId) || signalId < 1) {
+    return { notFound: true };
+  }
+
+  try {
+    const signal = await getSignalById(signalId);
+
+    if (!signal) {
+      return { notFound: true };
+    }
+
+    return {
+      props: {
+        data: { signal, related: [], backtest: [] },
+        error: null,
+      },
+      revalidate: 3600,
+    };
+  } catch (e) {
+    console.error(`[signal/${signalId}] getStaticProps error:`, e);
+    return {
+      props: {
+        data: null,
+        error: "暂时无法加载信号详情，请稍后刷新",
+      },
+      revalidate: 60,
+    };
+  }
+}
