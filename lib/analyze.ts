@@ -327,26 +327,13 @@ export async function detectEventThreads(hoursBack = 24) {
     let parseMethod = 'direct';
     try { parsed = JSON.parse(content); } catch {
       const m = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (m) {
-        parseMethod = 'code-block';
-        try { parsed = JSON.parse(m[1]); } catch { parsed = {}; }
-      } else {
-        // Extract the first complete JSON object with proper brace counting
-        const start = content.indexOf('{');
-        if (start !== -1) {
-          let depth = 0, inString = false, escape = false;
-          for (let i = start; i < content.length; i++) {
-            const ch = content[i];
-            if (escape) { escape = false; continue; }
-            if (ch === '\\') { escape = true; continue; }
-            if (ch === '"') { inString = !inString; continue; }
-            if (inString) continue;
-            if (ch === '{') depth++;
-            if (ch === '}') { depth--; if (depth === 0) { parseMethod = 'brace-count'; try { parsed = JSON.parse(content.slice(start, i + 1)); } catch { parsed = {}; } break; } }
-          }
-        }
-        if (!parseMethod) { parseMethod = 'fallback'; parsed = {}; }
-      }
+      const raw = m ? m[1] : content;
+      parseMethod = m ? 'code-block' : 'repair';
+      try {
+        const { jsonrepair } = await import('jsonrepair');
+        parsed = JSON.parse(jsonrepair(raw));
+      } catch { parsed = {}; parseMethod = 'fallback'; }
+    }
     }
     const threads = parsed?.event_threads || [];
     console.log(`[event-threads] Detected ${threads.length} event threads (parse: ${parseMethod}).`);
