@@ -41,12 +41,27 @@ export async function fetchMarketData() {
       const d = json?.data;
       if (!d || !d.f43) continue; // f43 = latest price, skip if missing
 
+      let changePct = null;
+      if (d.f170 != null) {
+        // f170: 涨跌幅. For stocks it's pct*100 (e.g. 250=2.5%), but for
+        // sector indices it sometimes returns index-level values. Validate.
+        const raw = d.f170 / 100;
+        changePct = Math.abs(raw) <= 50 ? raw : null;
+      }
+      // Fallback: calculate from close/open if f170 is invalid
+      if (changePct == null && d.f43 != null && d.f46 != null && d.f46 !== 0) {
+        changePct = ((d.f43 - d.f46) / d.f46) * 100;
+      }
+
+      // Safety clamp: reject clearly impossible values (>100% daily move)
+      if (changePct != null && Math.abs(changePct) > 100) changePct = null;
+
       allRows.push({
         code: d.f57,      // sector code
         name: d.f58,      // sector name
         type: 'index',    // sector index, not individual stock
         close: d.f43,     // latest price (or use f44=high, f45=low, f46=open)
-        change_pct: d.f170 != null ? d.f170 / 100 : null, // f170 = 涨跌幅, divide by 100 for actual %
+        change_pct: changePct,
         volume: d.f47,    // volume
       });
     } catch (err) {
@@ -131,9 +146,11 @@ export async function runBacktest(daysBack = 90) {
       args: [sig.industry, sig.date],
     });
 
-    if (marketRows.rows.length >= 1) day1 = marketRows.rows[0].change_pct;
-    if (marketRows.rows.length >= 3) day3 = marketRows.rows.slice(0, 3).reduce((s, r) => s + r.change_pct, 0);
-    if (marketRows.rows.length >= 7) day7 = marketRows.rows.slice(0, 7).reduce((s, r) => s + r.change_pct, 0);
+    // Filter out obviously wrong change_pct values (>50% daily move is unrealistic)
+    const validRows = marketRows.rows.filter(r => r.change_pct != null && Math.abs(r.change_pct) < 50);
+    if (validRows.length >= 1) day1 = validRows[0].change_pct;
+    if (validRows.length >= 3) day3 = validRows.slice(0, 3).reduce((s, r) => s + r.change_pct, 0);
+    if (validRows.length >= 7) day7 = validRows.slice(0, 7).reduce((s, r) => s + r.change_pct, 0);
 
     await db.execute({
       sql: `INSERT OR REPLACE INTO backtest_result (signal_date, industry, signal_score, signal_count, day_1_return, day_3_return, day_7_return)
