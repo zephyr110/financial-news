@@ -8,7 +8,7 @@
  * @env LLM_BASE_URL       — Base URL for chat completions endpoint (default: DeepSeek)
  * @env LLM_MODEL          — Model name (default: deepseek-v4-flash)
  * @env LLM_TEMPERATURE    — Sampling temperature 0-2 (default: 0.1)
- * @env LLM_MAX_TOKENS     — Max output tokens (default: 4096)
+ * @env LLM_MAX_TOKENS     — Max output tokens (default: 8192)
  * @env LLM_TIMEOUT_MS     — Request timeout in milliseconds (default: 60000)
  */
 
@@ -17,7 +17,7 @@ export const LLM_CONFIG = {
   baseUrl: process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1',
   model: process.env.LLM_MODEL || 'deepseek-v4-flash',
   temperature: parseFloat(process.env.LLM_TEMPERATURE) || 0.1,
-  maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10) || 4096,
+  maxTokens: parseInt(process.env.LLM_MAX_TOKENS, 10) || 8192,
   timeoutMs: parseInt(process.env.LLM_TIMEOUT_MS, 10) || 60000,
 };
 
