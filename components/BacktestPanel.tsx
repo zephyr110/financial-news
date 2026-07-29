@@ -39,10 +39,10 @@ export default function BacktestPanel() {
       >
         <div className="min-w-0 flex-1">
           <h3 className="text-xs sm:text-sm font-medium text-foreground">
-            信号有效性回测
+            信号回测
           </h3>
           <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
-            信号出现后行业指数平均涨跌幅 · 过去 90 天
+            信号出现后行业指数后续涨跌幅 · 近 90 天
           </p>
         </div>
         <ChevronDown
@@ -60,15 +60,15 @@ export default function BacktestPanel() {
           {loading ? (
             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-[11px] sm:text-xs">加载回测数据…</span>
+              <span className="text-[11px] sm:text-xs">加载中…</span>
             </div>
           ) : !hasData ? (
             <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
-              暂无回测数据，等待行情数据积累
+              暂无数据，信号和行情积累后自动生成
             </div>
           ) : (
             <>
-              <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mb-2">按行业（样本≥3）</h4>
+              <h4 className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mb-2">各行业表现</h4>
               <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
                 <span>行业</span>
                 <span>评分</span>
