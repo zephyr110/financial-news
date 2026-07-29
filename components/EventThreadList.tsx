@@ -27,19 +27,17 @@ export default function EventThreadList({ threads }) {
       <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
         事件线索
       </h3>
+      <p className="text-[10px] text-muted-foreground mb-3">基于近24小时高信号新闻生成</p>
       {!threads || threads.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-8">
           暂无事件线索，数据分析完成后自动生成
         </p>
       ) : (
-        <>
-          <div className="space-y-3">
-            {threads.map((thread) => (
-              <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
-            ))}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-3">基于近24小时高信号新闻生成</p>
-        </>
+        <div className="space-y-3">
+          {threads.map((thread) => (
+            <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
+          ))}
+        </div>
       )}
     </div>
   );
