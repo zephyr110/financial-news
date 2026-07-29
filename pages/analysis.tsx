@@ -52,7 +52,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
     setFetching(true);
     setError(null);
     try {
-      const res = await fetch(`/api/analysis?hoursBack=24&trendHours=${trendHours}`, { signal });
+      const res = await fetch(`/api/analysis?hoursBack=24&trendHours=${trendHours}`, signal ? { signal } : {});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems((data.items || []).map(item => ({

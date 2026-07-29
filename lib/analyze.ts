@@ -287,7 +287,7 @@ const EVENT_THREAD_PROMPT = `你是一个财经事件分析师。给定过去一
       "title": "<事件名称>",
       "news_ids": [<关联新闻的analysis_id列表>],
       "narrative": "<一句话描述事件发展过程>",
-      "stage": "早期|发酵中|全面扩散|成熟定价",
+      "stage": "early|brewing|spreading|priced_in",
       "confidence": "high|medium",
       "related_industries": ["<行业>"],
       "key_watch_points": ["<后续关注点>"]
@@ -298,7 +298,7 @@ const EVENT_THREAD_PROMPT = `你是一个财经事件分析师。给定过去一
 要求：
 - 只识别有2条以上新闻支持的事件线索
 - 每个线索聚焦一个明确的主题
-- stage判断标准：早期(1-2条初步报道)、发酵中(3-5条持续报道)、全面扩散(6+条多角度报道)、成熟定价(市场已有充分预期)
+- stage判断标准：early(1-2条初步报道)、brewing(3-5条持续报道)、spreading(6+条多角度报道)、priced_in(市场已有充分预期)
 - 最多返回5个事件线索`;
 
 export async function detectEventThreads(hoursBack = 24) {
@@ -329,8 +329,8 @@ export async function detectEventThreads(hoursBack = 24) {
       if (m) {
         try { parsed = JSON.parse(m[1]); } catch { parsed = {}; }
       } else {
-        // Find the outermost JSON object (non-greedy, balanced braces)
-        const objMatch = content.match(/\{[\s\S]*\}/);
+        // Find the first complete JSON object (lazy match to avoid merging multiple objects)
+        const objMatch = content.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
         if (objMatch) { try { parsed = JSON.parse(objMatch[0]); } catch { parsed = {}; } }
         else parsed = {};
       }

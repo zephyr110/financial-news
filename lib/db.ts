@@ -494,6 +494,7 @@ export async function getIndustryTrend(hoursBack = 24) {
 
 /** Save detected event threads, replacing any existing ones. */
 export async function saveEventThreads(threads) {
+  if (!Array.isArray(threads)) return;
   const db = await getDb();
   // Clean threads older than 7 days, keep recent history
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -511,13 +512,13 @@ export async function saveEventThreads(threads) {
       sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
-        t.title,
+        t.title || '未命名事件',
         JSON.stringify(t.news_ids || []),
         t.narrative || '',
         t.stage || 'early',
         t.confidence || 'medium',
-        t.related_industries ? JSON.stringify(t.related_industries) : '[]',
-        t.key_watch_points ? JSON.stringify(t.key_watch_points) : '[]',
+        JSON.stringify(t.related_industries || []),
+        JSON.stringify(t.key_watch_points || []),
       ],
     });
   }
@@ -540,5 +541,9 @@ export async function getEventThreads(hoursBack = 24) {
 }
 
 function tryParseJson(str) {
-  try { return JSON.parse(str); } catch { return []; }
+  if (!str || typeof str !== 'string') return [];
+  try {
+    const parsed = JSON.parse(str);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
 }

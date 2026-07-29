@@ -22,29 +22,22 @@ const confidenceIcons = {
 };
 
 export default function EventThreadList({ threads }) {
-  if (!threads || threads.length === 0) {
-    return (
-      <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-        <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-          事件线索
-        </h3>
-        <p className="text-xs text-muted-foreground text-center py-8">
-          暂无事件线索，等待 cron 任务生成
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
       <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
         事件线索
       </h3>
-      <div className="space-y-3">
-        {threads.map((thread) => (
-          <EventThreadCard key={thread.id} thread={thread} />
-        ))}
-      </div>
+      {!threads || threads.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-8">
+          暂无事件线索，数据分析完成后自动生成
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {threads.map((thread) => (
+            <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
