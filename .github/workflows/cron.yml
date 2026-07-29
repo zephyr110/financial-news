@@ -20,7 +20,9 @@ jobs:
         run: |
           echo "APP_URL length: ${#APP_URL}"
           echo "CRON_SECRET length: ${#CRON_SECRET}"
-          echo "CRON_SECRET characters (hex): $(echo -n "$CRON_SECRET" | xxd -p)"
+          # Check for leading/trailing whitespace
+          echo "CRON_SECRET first 4 chars prefix: [${CRON_SECRET:0:4}]"
+          echo "CRON_SECRET last 4 chars suffix: [${CRON_SECRET: -4}]"
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
