@@ -187,6 +187,27 @@ export async function runBacktest(daysBack = 90) {
 }
 
 /**
+ * Clean bad market data and backtest results.
+ */
+export async function cleanBacktestData() {
+  const db = await getDb();
+  // Delete market_data with impossible change_pct (>50% daily move)
+  const mdResult = await db.execute({
+    sql: 'DELETE FROM market_data WHERE ABS(change_pct) > 50',
+  });
+  // Delete backtest results computed from bad market data
+  const btResult = await db.execute({
+    sql: `DELETE FROM backtest_result WHERE ABS(day_1_return) > 50
+           OR ABS(day_3_return) > 150
+           OR ABS(day_7_return) > 350`,
+  });
+  return {
+    marketClean: mdResult.rowsAffected || 0,
+    backtestClean: btResult.rowsAffected || 0,
+  };
+}
+
+/**
  * Get backtest summary grouped by signal score.
  */
 export async function getBacktestSummary() {
