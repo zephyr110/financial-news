@@ -331,7 +331,7 @@ export async function getAnalyzedNews({ minScore = 1, limit = 50, hoursBack = 24
       WHERE a.signal_score >= ?
         AND n.published_at >= ?
         AND a.id < ?
-      ORDER BY a.signal_score DESC, n.published_at DESC
+      ORDER BY a.signal_score DESC, a.id DESC
       LIMIT ?
     `,
     args: [safeMin, since, cursor || 9999999, limit],

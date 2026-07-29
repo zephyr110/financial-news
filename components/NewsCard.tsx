@@ -4,7 +4,24 @@ import { cn } from "@/lib/utils";
 import { parseItemTime, formatTime } from "@/lib/format";
 import SignalBadge from "./SignalBadge";
 
-export default function NewsCard({ item, index }) {
+interface NewsCardProps {
+  item: {
+    id?: number | string;
+    rich_text?: string;
+    content?: string;
+    docurl?: string;
+    published_at?: string;
+    create_time?: string;
+    analysis?: {
+      id: number;
+      signal_score: number;
+      category: string;
+    } | null;
+  };
+  index: number;
+}
+
+export default function NewsCard({ item, index }: NewsCardProps) {
   const isAnimated = index < 10;
   const time = parseItemTime(item);
   const text = item.rich_text || item.content || "";

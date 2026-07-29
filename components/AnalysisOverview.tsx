@@ -4,7 +4,7 @@ import TrendDelta from "./TrendDelta";
 
 const CARDS = [
   {
-    key: null,
+    key: "overall",
     icon: Zap,
     label: "信号强度",
     gradient: "from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600",
@@ -41,7 +41,26 @@ const CARDS = [
   },
 ];
 
-export default function AnalysisOverview({ stats, items, loading, filter, onFilterChange }) {
+interface AnalysisOverviewProps {
+  stats: {
+    total_signals?: number;
+    critical_count?: number;
+    significant_count?: number;
+    max_score?: number;
+    previous?: {
+      total_signals?: number;
+      critical_count?: number;
+      significant_count?: number;
+      max_score?: number;
+    } | null;
+  } | null;
+  items: Array<{ signal_score: number }>;
+  loading: boolean;
+  filter: string | null;
+  onFilterChange: (key: string | null) => void;
+}
+
+export default function AnalysisOverview({ stats, items, loading, filter, onFilterChange }: AnalysisOverviewProps) {
   const total = stats?.total_signals ?? 0;
   const prev = stats?.previous;
   const prevTotal = prev?.total_signals;
@@ -51,7 +70,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
     : "—";
 
   const values = {
-    null: {
+    overall: {
       value: avgScore,
       sub: `共 ${total} 条信号`,
       current: typeof avgScore === "string" ? parseFloat(avgScore) : avgScore,
@@ -90,7 +109,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
           <button
             key={label}
             type="button"
-            onClick={() => onFilterChange?.(active ? null : key)}
+            onClick={() => onFilterChange?.(active ? null : (key === "overall" ? null : key))}
             className={cn(
               "relative overflow-hidden rounded-xl p-3 sm:p-4 text-left transition-all duration-200",
               "bg-gradient-to-br", gradient, "sm:flex-1",

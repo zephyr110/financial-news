@@ -86,7 +86,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       setCompanyHeatmap(data.companyHeatmap || []);
       setNextCursor(data.nextCursor || null);
     } catch (e) {
-      if (e.name === "AbortError") return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
       console.error("Analysis refresh failed:", e);
       setError("数据更新失败，请稍后重试");
     } finally {

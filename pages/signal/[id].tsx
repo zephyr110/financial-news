@@ -15,7 +15,8 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
   const [loading, setLoading] = useState(false);
 
   // Fallback: fetch client-side if not pre-rendered
-  const { id } = router.query;
+  const rawId = router.query.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
 
   useEffect(() => {
     if (ssgData) return; // already have SSG data

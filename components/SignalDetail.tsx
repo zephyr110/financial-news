@@ -38,10 +38,50 @@ const IMPACT_LABELS: Record<string, string> = {
   noise: "噪声",
 };
 
+interface SignalDetailSignal {
+  signal_score: number;
+  category: string;
+  impact_level: string;
+  sentiment: string;
+  summary: string;
+  deep_analysis: string | null;
+  industries: string[];
+  companies: string[];
+  tags: string[];
+  analyzed_at: string;
+  source: string;
+  content: string;
+  published_at: string;
+  event_thread: {
+    id: number;
+    title: string;
+    stage: string;
+    confidence: string;
+  } | null;
+}
+
+interface BacktestRow {
+  industry: string;
+  samples: number;
+  avg_d1: number;
+  avg_d3: number;
+  avg_d7: number;
+  win_rate: number;
+}
+
+interface RelatedSignal {
+  id: number;
+  signal_score: number;
+  category: string;
+  industries: string[];
+  summary: string;
+  published_at: string;
+}
+
 interface SignalDetailProps {
-  signal: any;
-  related: any[];
-  backtest: any[];
+  signal: SignalDetailSignal | null;
+  related: RelatedSignal[];
+  backtest: BacktestRow[];
 }
 
 /**

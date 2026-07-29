@@ -55,6 +55,14 @@ export default function IndustryBacktestInline({
         className
       )}
       onClick={() => onViewDetail?.(match!.industry)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onViewDetail?.(match!.industry);
+        }
+      }}
+      role={onViewDetail ? "button" : undefined}
+      tabIndex={onViewDetail ? 0 : undefined}
       title={`${match.industry} · 近90天回测 · ${match.samples} 个样本`}
     >
       <span className="font-medium">📊 {match.industry}</span>
