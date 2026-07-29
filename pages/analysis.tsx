@@ -228,18 +228,22 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 export async function getStaticProps() {
   try {
     const [news, stats, heatmap, trend, threads] = await Promise.all([
-      getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 200 }),
+      getAnalyzedNews({ minScore: 1, hoursBack: 24, limit: 50 }),
       getAnalysisStats(24),
       getIndustryHeatmap(24),
       getIndustryTrend(24),
       getEventThreads(24),
     ]);
-    const items = news.map((item) => ({
-      ...item,
-      industries: item.industries ? safeParse(item.industries) : [],
-      companies: item.companies ? safeParse(item.companies) : [],
-      tags: item.tags ? safeParse(item.tags) : [],
-    }));
+    const items = news.map((item) => {
+      // Strip heavy text fields not needed for timeline rendering
+      const { content, deep_analysis, ...light } = item;
+      return {
+        ...light,
+        industries: light.industries ? safeParse(light.industries) : [],
+        companies: light.companies ? safeParse(light.companies) : [],
+        tags: light.tags ? safeParse(light.tags) : [],
+      };
+    });
     return {
       props: {
         stats: stats || { total_signals: 0, significant_count: 0, max_score: 0, critical_count: 0 },
