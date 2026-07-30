@@ -6,7 +6,6 @@ import RelatedSignals from "./RelatedSignals";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
-  SCORE_TO_IMPACT,
 } from "@/lib/constants";
 
 const STAGE_LABELS: Record<string, string> = {

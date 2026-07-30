@@ -143,7 +143,7 @@ export default function BacktestPanel() {
                       </span>
                       <ScoreBadge score={row.signal_score} />
                       <div className="sm:hidden text-[11px] text-muted-foreground">
-                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)}
+                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}
                       </div>
                       <ReturnCell value={row.avg_d1} />
                       <ReturnCell value={row.avg_d3} />

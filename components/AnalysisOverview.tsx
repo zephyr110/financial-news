@@ -73,9 +73,6 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
     overall: {
       value: avgScore,
       sub: `共 ${total} 条信号`,
-      current: typeof avgScore === "string" ? parseFloat(avgScore) : avgScore,
-      previous: null, // no avgScore for previous period
-      // Use total_signals as trend proxy
       trendCurrent: total,
       trendPrevious: prevTotal ?? null,
     },

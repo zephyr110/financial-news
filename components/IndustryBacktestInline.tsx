@@ -43,9 +43,9 @@ export default function IndustryBacktestInline({
 
   if (!match) return null;
 
-  const d1 = match.avg_d1;
-  const isPositive = d1 > 0;
-  const isNegative = d1 < 0;
+  const d3 = match.avg_d3;
+  const isPositive = d3 > 0;
+  const isNegative = d3 < 0;
 
   return (
     <div
@@ -85,7 +85,7 @@ export default function IndustryBacktestInline({
             isNegative && "text-red-600 dark:text-red-400"
           )}
         >
-          {d1 > 0 ? "+" : ""}{d1.toFixed(2)}%
+          {d3 > 0 ? "+" : ""}{d3.toFixed(2)}%
         </span>
       </span>
     </div>
