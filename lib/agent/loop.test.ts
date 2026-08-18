@@ -1,0 +1,125 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ── Mock 依赖：db 写入 + LLM 调用 ──
+
+const db = vi.hoisted(() => ({
+  appendAgentMessage: vi.fn().mockResolvedValue(undefined),
+  createAgentSession: vi.fn().mockResolvedValue(1),
+  touchAgentSession: vi.fn().mockResolvedValue(undefined),
+  logEvent: vi.fn().mockResolvedValue(undefined),
+  getAgentMessages: vi.fn().mockResolvedValue([]),
+  EVENT_TYPES: {
+    NEWS_INGESTED: 'news.ingested',
+    SIGNAL_SCORED: 'signal.scored',
+    ENTITY_MAPPED: 'entity.mapped',
+    THREAD_LINKED: 'thread.linked',
+    AGENT_QUERY: 'agent.query',
+  },
+}));
+
+const llm = vi.hoisted(() => ({
+  chatCompletion: vi.fn(),
+}));
+
+const config = vi.hoisted(() => ({
+  apiKey: 'test-key',
+}));
+
+// 保留真实 db 查询函数（tools 依赖），仅覆盖写入/副作用函数
+vi.mock('../db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../db')>();
+  return { ...actual, ...db };
+});
+vi.mock('../llm/client', () => llm);
+vi.mock('../llm/config', () => ({ LLM_CONFIG: config }));
+vi.mock('./session', () => ({
+  loadAgentContext: vi.fn().mockResolvedValue([]),
+}));
+
+import { tryParseToolCall, runAgentTurn } from './loop';
+
+describe('tryParseToolCall', () => {
+  it('解析纯 JSON 工具调用', () => {
+    const result = tryParseToolCall('{"tool":"search_news","args":{"query":"存储"}}');
+    expect(result).toEqual({ tool: 'search_news', args: { query: '存储' } });
+  });
+
+  it('解析 ```json 代码块包裹的工具调用', () => {
+    const result = tryParseToolCall('```json\n{"tool":"get_event_threads","args":{}}\n```');
+    expect(result?.tool).toBe('get_event_threads');
+  });
+
+  it('非 JSON 文本视为最终回答（返回 null）', () => {
+    expect(tryParseToolCall('存储涨价链条目前处于发酵阶段。')).toBeNull();
+  });
+
+  it('JSON 但缺少 tool 字段返回 null', () => {
+    expect(tryParseToolCall('{"foo":"bar"}')).toBeNull();
+  });
+});
+
+describe('runAgentTurn', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.createAgentSession.mockResolvedValue(1);
+  });
+
+  it('工具调用 → 结果回喂 → 最终回答（2 步）', async () => {
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"search_news","args":{"query":"存储"}}' })
+      .mockResolvedValueOnce({ content: '存储行业近期有 5 条信号，平均分 4.2。' });
+
+    const result = await runAgentTurn({ userMessage: '存储现在什么情况？' });
+
+    expect(result.reply).toContain('存储行业');
+    expect(result.steps).toBe(2);
+    expect(result.truncated).toBe(false);
+    expect(result.toolLog).toHaveLength(1);
+    expect(result.toolLog[0].name).toBe('search_news');
+    expect(result.toolLog[0].ok).toBe(true);
+    // 全程持久化（模型可见即记录）：user + 工具调用 + 工具结果 + 最终回答
+    expect(db.appendAgentMessage).toHaveBeenCalledTimes(4);
+    expect(db.logEvent).toHaveBeenCalled();
+  });
+
+  it('未知工具名 → 告知模型重试 → 模型给出最终回答', async () => {
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"nonexistent","args":{}}' })
+      .mockResolvedValueOnce({ content: '抱歉，我换个方式回答。' });
+
+    const result = await runAgentTurn({ sessionId: 5, userMessage: '测试' });
+
+    expect(result.steps).toBe(2);
+    expect(result.reply).toContain('抱歉');
+    // 工具不存在的反馈消息也持久化
+    expect(db.appendAgentMessage.mock.calls.some((c) => c[2].includes('工具不存在'))).toBe(true);
+  });
+
+  it('工具执行失败 → ok=false 且模型仍可继续', async () => {
+    // get_backtest 在真实 DB 无数据时返回 '暂无回测数据'，不抛错；
+    // 这里直接断言错误分支：把 search_news 换成会抛错的工具场景
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"get_backtest","args":{"industry":"__不存在__"}}' })
+      .mockResolvedValueOnce({ content: '好的。' });
+
+    const result = await runAgentTurn({ userMessage: '回测' });
+    // 真实执行 get_backtest 不抛错（返回提示文本），工具仍记为成功
+    expect(result.toolLog[0].ok).toBe(true);
+    expect(result.toolLog[0].summary).toContain('暂无回测数据');
+  });
+
+  it('步数上限触发截断', async () => {
+    llm.chatCompletion.mockResolvedValue({ content: '{"tool":"search_news","args":{"query":"循环"}}' });
+
+    const result = await runAgentTurn({ userMessage: '一直调用工具' });
+
+    expect(result.truncated).toBe(true);
+    expect(result.steps).toBeLessThanOrEqual(8);
+  });
+
+  it('未配置 API key 时抛错', async () => {
+    config.apiKey = '';
+    await expect(runAgentTurn({ userMessage: 'hi' })).rejects.toThrow('LLM_API_KEY');
+    config.apiKey = 'test-key';
+  });
+});

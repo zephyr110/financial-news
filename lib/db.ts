@@ -112,6 +112,37 @@ async function initSchema(db) {
       calculated_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(signal_date, industry)
     );
+
+    -- 领域事件日志（append-only，spec §10.2 原则2"模型可见即记录"）
+    -- 记录分析管道全链路：news.ingested → signal.scored → entity.mapped → thread.linked
+    -- 信号评分可完整回溯：为什么这条新闻得 4 分、何时被打标、归属哪个事件线索。
+    CREATE TABLE IF NOT EXISTS event_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type TEXT    NOT NULL,
+      entity_id  INTEGER,
+      payload    TEXT,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_event_type    ON event_log(event_type);
+    CREATE INDEX IF NOT EXISTS idx_event_created ON event_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_event_entity  ON event_log(entity_id);
+
+    -- 研究 Agent 会话（spec §10.3 阶段 B，Session Note 式持久记忆）
+    CREATE TABLE IF NOT EXISTS agent_session (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS agent_message (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL REFERENCES agent_session(id),
+      role       TEXT    NOT NULL,   -- user | assistant | system(摘要)
+      content    TEXT    NOT NULL,
+      meta       TEXT,               -- JSON: {toolCall, toolResult}
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_msg_session ON agent_message(session_id, id);
   `);
 }
 
@@ -541,6 +572,116 @@ export async function getEventThreads(hoursBack = 24) {
   }));
 }
 
+/** Get a single event thread by id, with its linked signals (news_ids → analysis rows). */
+export async function getEventThreadById(id: number) {
+  const db = await getDb();
+  const threadResult = await db.execute({
+    sql: 'SELECT * FROM event_threads WHERE id = ?',
+    args: [id],
+  });
+  if (threadResult.rows.length === 0) return null;
+
+  const thread = threadResult.rows[0] as Record<string, unknown>;
+  const newsIds = tryParseJson(thread.news_ids as string);
+
+  let signals = [];
+  if (newsIds.length > 0) {
+    const placeholders = newsIds.map(() => '?').join(', ');
+    const sigResult = await db.execute({
+      sql: `
+        SELECT a.id, a.signal_score, a.category, a.summary, n.published_at, n.content
+        FROM analysis_result a
+        JOIN news_archive n ON n.id = a.news_id
+        WHERE a.id IN (${placeholders})
+        ORDER BY n.published_at ASC
+      `,
+      args: newsIds,
+    });
+    signals = sigResult.rows.map((r: Record<string, unknown>) => ({
+      id: rowId(r.id),
+      signal_score: r.signal_score,
+      category: r.category,
+      summary: r.summary,
+      published_at: r.published_at,
+      content: (r.content as string || '').slice(0, 200),
+    }));
+  }
+
+  return {
+    id: rowId(thread.id),
+    title: thread.title,
+    narrative: thread.narrative,
+    stage: thread.stage,
+    confidence: thread.confidence,
+    industries: tryParseJson(thread.industries as string),
+    watch_points: tryParseJson(thread.watch_points as string),
+    created_at: thread.created_at,
+    signals,
+  };
+}
+
+// ── Agent Session CRUD（研究 Agent 持久化） ──
+
+/** 创建研究会话，返回 session id。 */
+export async function createAgentSession(title = '新会话') {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: 'INSERT INTO agent_session (title) VALUES (?)',
+    args: [title],
+  });
+  return rowId(result.lastInsertRowid);
+}
+
+/** 列出研究会话（倒序）。 */
+export async function listAgentSessions(limit = 20) {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: 'SELECT id, title, created_at, updated_at FROM agent_session ORDER BY updated_at DESC LIMIT ?',
+    args: [limit],
+  });
+  return result.rows;
+}
+
+/** 更新会话标题与更新时间。 */
+export async function touchAgentSession(sessionId: number, title?: string) {
+  const db = await getDb();
+  await db.execute({
+    sql: 'UPDATE agent_session SET updated_at = datetime(\'now\'), title = COALESCE(?, title) WHERE id = ?',
+    args: [title ?? null, sessionId],
+  });
+}
+
+/** 追加一条会话消息。meta 为 {toolCall?, toolResult?} 可 JSON 数据。 */
+export async function appendAgentMessage(sessionId: number, role: string, content: string, meta?: unknown) {
+  const db = await getDb();
+  await db.execute({
+    sql: 'INSERT INTO agent_message (session_id, role, content, meta) VALUES (?, ?, ?, ?)',
+    args: [sessionId, role, content, meta != null ? JSON.stringify(meta) : null],
+  });
+}
+
+/** 读取会话全部消息（正序）。 */
+export async function getAgentMessages(sessionId: number) {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: 'SELECT id, role, content, meta, created_at FROM agent_message WHERE session_id = ? ORDER BY id ASC',
+    args: [sessionId],
+  });
+  return result.rows.map((r: Record<string, unknown>) => ({
+    id: rowId(r.id),
+    role: r.role,
+    content: r.content,
+    meta: parseJsonOrNull(r.meta as string),
+    created_at: r.created_at,
+  }));
+}
+
+/** 解析可空 JSON 字段（对象或 null）。 */
+function parseJsonOrNull(str: string | null) {
+  if (!str) return null;
+  try { return JSON.parse(str); } catch { return null; }
+}
+
 function tryParseJson(str) {
   if (!str || typeof str !== 'string') return [];
   try {
@@ -928,4 +1069,65 @@ export async function getHighScoreSignals({
     args: [since, safeMin, safeLimit],
   });
   return result.rows.map((r: Record<string, unknown>) => ({ id: rowId(r.id) }));
+}
+
+// ── Event Log (append-only, spec §10.2 原则2"模型可见即记录") ──
+
+/** 领域事件类型。 */
+export const EVENT_TYPES = {
+  NEWS_INGESTED: 'news.ingested',
+  SIGNAL_SCORED: 'signal.scored',
+  ENTITY_MAPPED: 'entity.mapped',
+  THREAD_LINKED: 'thread.linked',
+  AGENT_QUERY: 'agent.query',
+} as const;
+
+/**
+ * 追加一条领域事件（只增不改，历史不可变）。
+ * payload 为可 JSON 序列化的附加数据。
+ */
+export async function logEvent(
+  eventType: string,
+  opts: { entityId?: number | null; payload?: unknown } = {},
+) {
+  try {
+    const db = await getDb();
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload) VALUES (?, ?, ?)',
+      args: [
+        eventType,
+        opts.entityId ?? null,
+        opts.payload != null ? JSON.stringify(opts.payload) : null,
+      ],
+    });
+  } catch (err) {
+    // 事件日志不允许阻断主流程
+    console.error(`[event-log] Failed to log ${eventType}:`, err.message);
+  }
+}
+
+/**
+ * 查询事件日志（按时间倒序）。
+ * @param eventType 可选，按类型过滤
+ * @param limit 条数上限
+ */
+export async function getEventLog(eventType?: string, limit = 100) {
+  const db = await getDb();
+  const safeLimit = Number.isFinite(limit) ? Math.min(limit, 1000) : 100;
+  const result = eventType
+    ? await db.execute({
+        sql: 'SELECT * FROM event_log WHERE event_type = ? ORDER BY id DESC LIMIT ?',
+        args: [eventType, safeLimit],
+      })
+    : await db.execute({
+        sql: 'SELECT * FROM event_log ORDER BY id DESC LIMIT ?',
+        args: [safeLimit],
+      });
+  return result.rows.map((r: Record<string, unknown>) => ({
+    id: rowId(r.id),
+    event_type: r.event_type,
+    entity_id: rowId(r.entity_id),
+    payload: tryParseJson(r.payload as string),
+    created_at: r.created_at,
+  }));
 }
