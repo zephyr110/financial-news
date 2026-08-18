@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Newspaper, BarChart3 } from 'lucide-react';
+import { Newspaper, BarChart3, MessageSquareText } from 'lucide-react';
 
 export default function NavTabs() {
   const router = useRouter();
@@ -8,6 +8,7 @@ export default function NavTabs() {
   const tabs = [
     { href: '/', label: '实时快讯', icon: Newspaper },
     { href: '/analysis', label: '分析面板', icon: BarChart3 },
+    { href: '/agent', label: '研究助手', icon: MessageSquareText },
   ];
 
   return (

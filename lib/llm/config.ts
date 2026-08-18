@@ -1,5 +1,10 @@
 /**
- * LLM Provider Configuration
+ * LLM Provider Configuration — Analyzer seam（spec §10.2 原则1）
+ *
+ * 这是"分析器接缝"的 Service Definition + Provider：
+ *   - Service Definition：lib/llm/client.ts 的 chatCompletion()（OpenAI 兼容）
+ *   - Provider 切换：全部由环境变量驱动，改 env 即可换模型/服务商，零代码改动
+ *   - Consumer：lib/analyze.ts（信号筛选/实体映射/事件串联）、lib/agent/（研究 Agent）
  *
  * All values driven by environment variables with DeepSeek-compatible defaults.
  * To switch providers (OpenAI, Anthropic, etc.), change the env vars — no code changes needed.

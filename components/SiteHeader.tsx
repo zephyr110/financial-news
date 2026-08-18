@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Newspaper, BarChart3, RefreshCw } from "lucide-react";
+import { Newspaper, BarChart3, MessageSquareText, RefreshCw } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/", label: "快讯", icon: Newspaper },
   { href: "/analysis", label: "信号", icon: BarChart3 },
+  { href: "/agent", label: "研究助手", icon: MessageSquareText },
 ];
 
-export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
+export default function SiteHeader({ onRefresh, refreshing, lastUpdated }: { onRefresh?: (signal?: AbortSignal) => void | Promise<void>; refreshing?: boolean; lastUpdated?: string | null }) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
 
@@ -73,7 +74,7 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }) {
           <div className="flex items-center gap-1 shrink-0">
             {onRefresh && (
               <button
-                onClick={onRefresh}
+                onClick={() => onRefresh?.()}
                 disabled={refreshing}
                 className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="刷新数据"

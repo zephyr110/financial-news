@@ -1,6 +1,7 @@
 import { fetchNews } from './fetchNews';
-import { insertNews, insertNewsBatch } from './db';
+import { insertNews, insertNewsBatch, logEvent, EVENT_TYPES } from './db';
 import { FILTER_KEYWORDS } from './constants';
+import { registerNewsSource, getActiveNewsSources, type NewsSourceProvider } from './providers';
 
 // Eastmoney & CLS news APIs are currently unavailable (404/405 as of 2026-07).
 // Infrastructure kept for when APIs are re-enabled. Sina remains the primary working source.
@@ -154,37 +155,36 @@ async function fetchClsNews() {
   return [];
 }
 
+// --- NewsSource seam: register providers (spec §10.2 原则1) ---
+// 新增信源 = 实现 NewsSourceProvider 并 registerNewsSource(...)，无需改主流程。
+// 配置级启停：环境变量 NEWS_SOURCES="sina,10jqka"（白名单），见 lib/providers.ts。
+
+const providers: NewsSourceProvider[] = [
+  { id: 'sina', name: '新浪 7×24', fetch: fetchSinaNews },
+  { id: 'eastmoney', name: '东方财富快讯', fetch: fetchEastmoneyNews },
+  { id: 'cls', name: '财联社', fetch: fetchClsNews },
+  { id: '10jqka', name: '同花顺 7×24', fetch: fetch10jqkaNews },
+  { id: 'wallstreetcn', name: '华尔街见闻', fetch: fetchWallstreetcnNews },
+];
+for (const p of providers) registerNewsSource(p);
+
 // --- Main Archive Function ---
 
 /**
- * Fetch from all sources, normalize, dedupe-insert into SQLite.
- * Returns counts per source.
- */
-/**
- * Fetch live news from all sources without DB insertion.
+ * Fetch live news from all active sources without DB insertion.
  * Used by getStaticProps and /api/news for real-time supplement.
  */
 export async function fetchLiveNews() {
-  const [sinaItems, emItems, clsItems, jqkaItems, wallItems] = await Promise.all([
-    fetchSinaNews(),
-    fetchEastmoneyNews(),
-    fetchClsNews(),
-    fetch10jqkaNews(),
-    fetchWallstreetcnNews(),
-  ]);
+  const active = getActiveNewsSources();
+  const results = await Promise.all(active.map((p) => p.fetch()));
 
   // Merge and normalize to a common format (matching what frontend expects)
   const all = [];
-  const addItems = (items) => {
+  for (const items of results) {
     for (const item of items) {
       all.push({ id: `${item.source}_${item.source_id}`, rich_text: item.content, published_at: item.published_at, source: item.source, title: item.title });
     }
-  };
-  addItems(sinaItems);
-  addItems(jqkaItems);
-  addItems(wallItems);
-  addItems(emItems);
-  addItems(clsItems);
+  }
 
   // Sort by time desc
   all.sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
@@ -192,41 +192,27 @@ export async function fetchLiveNews() {
 }
 
 export async function archiveNews() {
-  const counts = { sina: 0, jqka: 0, wallstreetcn: 0, duplicates: 0 };
+  const active = getActiveNewsSources();
+  const counts = { duplicates: 0 };
+  const sourceCounts: Record<string, number> = {};
 
-  // Fetch from all available sources in parallel
-  const [sinaItems, emItems, clsItems, jqkaItems, wallItems] = await Promise.all([
-    fetchSinaNews(),
-    fetchEastmoneyNews(),
-    fetchClsNews(),
-    fetch10jqkaNews(),
-    fetchWallstreetcnNews(),
-  ]);
+  // Fetch from all active sources in parallel
+  const results = await Promise.all(active.map((p) => p.fetch()));
 
-  const sinaInserted = await insertNewsBatch(sinaItems);
-  counts.sina = sinaInserted;
-  counts.duplicates += sinaItems.length - sinaInserted;
-
-  // Eastmoney/CLS currently degraded (API down); counts tracked when APIs resume
-  if (emItems.length > 0) {
-    const emInserted = await insertNewsBatch(emItems);
-    counts.duplicates += emItems.length - emInserted;
-  }
-  if (clsItems.length > 0) {
-    const clsInserted = await insertNewsBatch(clsItems);
-    counts.duplicates += clsItems.length - clsInserted;
-  }
-  if (jqkaItems.length > 0) {
-    const jqkaInserted = await insertNewsBatch(jqkaItems);
-    counts.jqka = jqkaInserted;
-    counts.duplicates += jqkaItems.length - jqkaInserted;
-  }
-  if (wallItems.length > 0) {
-    const wallInserted = await insertNewsBatch(wallItems);
-    counts.wallstreetcn = wallInserted;
-    counts.duplicates += wallItems.length - wallInserted;
+  for (let i = 0; i < active.length; i++) {
+    const provider = active[i];
+    const items = results[i];
+    if (items.length === 0) continue;
+    const inserted = await insertNewsBatch(items);
+    sourceCounts[provider.id] = inserted;
+    counts.duplicates += items.length - inserted;
+    if (inserted > 0) {
+      await logEvent(EVENT_TYPES.NEWS_INGESTED, {
+        payload: { source: provider.id, count: inserted },
+      });
+    }
   }
 
-  console.log(`[archive] sina=${counts.sina} jqka=${counts.jqka} wallstreetcn=${counts.wallstreetcn} dup=${counts.duplicates}`);
-  return counts;
+  console.log(`[archive] ${Object.entries(sourceCounts).map(([k, v]) => `${k}=${v}`).join(' ')} dup=${counts.duplicates}`);
+  return { ...counts, ...sourceCounts };
 }

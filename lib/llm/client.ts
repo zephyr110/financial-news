@@ -9,7 +9,7 @@ import { LLM_CONFIG, getChatCompletionsUrl, PRICING } from './config';
 
 export const usageLog = [];
 
-export async function chatCompletion({ systemPrompt, userMessage, extra = undefined, temperature = undefined, maxTokens = undefined }) {
+export async function chatCompletion({ systemPrompt = undefined, userMessage = undefined, messages = undefined, extra = undefined, temperature = undefined, maxTokens = undefined }) {
   const url = getChatCompletionsUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_CONFIG.timeoutMs);
@@ -17,7 +17,8 @@ export async function chatCompletion({ systemPrompt, userMessage, extra = undefi
   try {
     const body = {
       model: LLM_CONFIG.model,
-      messages: [
+      // messages 优先（多轮/工具调用场景），否则降级为 system+user 单轮
+      messages: messages ?? [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],

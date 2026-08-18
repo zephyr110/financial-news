@@ -1,4 +1,4 @@
-import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads } from './db';
+import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads, logEvent, EVENT_TYPES } from './db';
 import { LLM_CONFIG, describeProvider } from './llm/config';
 import { chatCompletion, getUsageStats, getCostEstimate } from './llm/client';
 import { SCORE_TO_IMPACT } from './constants';
@@ -146,6 +146,16 @@ export async function analyzeUnanalyzedNews(batchSize = 15, maxBatches = 10) {
             deep_analysis: null,
             tags: null,
           });
+          await logEvent(EVENT_TYPES.SIGNAL_SCORED, {
+            entityId: item.id,
+            payload: {
+              signal_score: result.signal_score,
+              category: result.category,
+              sentiment: result.sentiment,
+              summary: result.summary,
+              reason: result.reason || '',
+            },
+          });
           analyzed++;
         } catch (err) {
           console.error(`[analyze] Insert error for news ${item.id}:`, err.message);
@@ -255,6 +265,14 @@ export async function deepAnalyzeSignals(batchSize = 10, maxBatches = 5) {
             tags: result.tags,
             deepAnalysis: result.deep_analysis || result.summary,
           });
+          await logEvent(EVENT_TYPES.ENTITY_MAPPED, {
+            entityId: item.id,
+            payload: {
+              industries: result.industries,
+              companies: result.companies,
+              tags: result.tags,
+            },
+          });
           analyzed++;
         } catch (err) {
           console.error(`[deep-analyze] Update error for news ${item.id}:`, err.message);
@@ -337,6 +355,17 @@ export async function detectEventThreads(hoursBack = 24) {
     console.log(`[event-threads] Detected ${threads.length} event threads (parse: ${parseMethod}).`);
     if (threads.length > 0) {
       await saveEventThreads(threads);
+      await logEvent(EVENT_TYPES.THREAD_LINKED, {
+        payload: {
+          count: threads.length,
+          threads: threads.map((t) => ({
+            title: t.title,
+            news_ids: t.news_ids,
+            stage: t.stage,
+            confidence: t.confidence,
+          })),
+        },
+      });
     }
     // Check if LLM response was truncated (unclosed braces/brackets)
     let openBraces = 0, openBrackets = 0, inStr = false, esc = false;
