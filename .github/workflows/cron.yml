@@ -2,8 +2,10 @@ name: News Archive & Analyze
 
 on:
   schedule:
-    # Every 4 hours at :13 (avoid peak, reduce LLM cost)
-    - cron: '13 */4 * * *'
+    # Daily backup at 21:17 UTC (05:17 Beijing) — QStash schedules are the
+    # primary trigger (every 30 min); this backfills anything QStash missed.
+    # Note: GitHub Actions schedule is not guaranteed to fire on time.
+    - cron: '17 21 * * *'
 
   workflow_dispatch:  # manual trigger via GitHub UI
 
