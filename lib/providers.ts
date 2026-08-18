@@ -50,7 +50,14 @@ export function getActiveNewsSources(): NewsSourceProvider[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return [...newsSources.values()].filter((p) => whitelist.includes(p.id));
+  const all = [...newsSources.values()];
+  const unknown = whitelist.filter((w) => !all.some((p) => p.id === w));
+  if (unknown.length > 0) {
+    // 白名单含未知/拼写错误项时回退全部启用——fail-closed 会把结果清空成空抓取（C18）
+    console.warn(`[providers] NEWS_SOURCES 含未知信源: ${unknown.join(', ')} — 回退为全部启用`);
+    return all;
+  }
+  return all.filter((p) => whitelist.includes(p.id));
 }
 
 /** 已注册的全部信源（含禁用），用于统计/诊断。 */

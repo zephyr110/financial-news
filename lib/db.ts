@@ -124,8 +124,9 @@ async function initSchema(db) {
       created_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_event_type    ON event_log(event_type);
-    CREATE INDEX IF NOT EXISTS idx_event_created ON event_log(created_at);
-    CREATE INDEX IF NOT EXISTS idx_event_entity  ON event_log(entity_id);
+    -- 事件日志只按 id 倒序读取（getEventLog），created_at/entity_id 索引徒增写入开销（C11）
+    DROP INDEX IF EXISTS idx_event_created;
+    DROP INDEX IF EXISTS idx_event_entity;
 
     -- 研究 Agent 会话（spec §10.3 阶段 B，Session Note 式持久记忆）
     CREATE TABLE IF NOT EXISTS agent_session (
@@ -529,14 +530,14 @@ export async function saveEventThreads(threads) {
   if (!Array.isArray(threads)) return;
   const db = await getDb();
   // Clean threads older than 7 days, keep recent history
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = isoToSqlite(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
   await db.execute({ sql: 'DELETE FROM event_threads WHERE created_at < ?', args: [cutoff] });
 
   for (const t of threads) {
     // Skip if a thread with same title exists from the past 24h
     const existing = await db.execute({
       sql: 'SELECT id FROM event_threads WHERE title = ? AND created_at > ?',
-      args: [t.title, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()],
+      args: [t.title, isoToSqlite(new Date(Date.now() - 24 * 60 * 60 * 1000))],
     });
     if (existing.rows.length > 0) continue;
 
@@ -559,7 +560,7 @@ export async function saveEventThreads(threads) {
 /** Get recent event threads. */
 export async function getEventThreads(hoursBack = 24) {
   const db = await getDb();
-  const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
+  const since = isoToSqlite(new Date(Date.now() - hoursBack * 60 * 60 * 1000));
   const result = await db.execute({
     sql: 'SELECT * FROM event_threads WHERE created_at >= ? ORDER BY created_at DESC',
     args: [since],
@@ -589,7 +590,8 @@ export async function getEventThreadById(id: number) {
     const placeholders = newsIds.map(() => '?').join(', ');
     const sigResult = await db.execute({
       sql: `
-        SELECT a.id, a.signal_score, a.category, a.summary, n.published_at, n.content
+        SELECT a.id, a.signal_score, a.category, a.summary, n.published_at,
+               substr(n.content, 1, 200) as content
         FROM analysis_result a
         JOIN news_archive n ON n.id = a.news_id
         WHERE a.id IN (${placeholders})
@@ -603,7 +605,7 @@ export async function getEventThreadById(id: number) {
       category: r.category,
       summary: r.summary,
       published_at: r.published_at,
-      content: (r.content as string || '').slice(0, 200),
+      content: (r.content as string || ''), // SQL 已 substr 截断
     }));
   }
 
@@ -674,6 +676,15 @@ export async function getAgentMessages(sessionId: number) {
     meta: parseJsonOrNull(r.meta as string),
     created_at: r.created_at,
   }));
+}
+
+/**
+ * Date → SQLite datetime 格式（'YYYY-MM-DD HH:MM:SS'）。
+ * 与 datetime('now') 默认值对齐，避免 'T' 与 ' ' 格式混用导致
+ * 字符串比较错位（'2026-08-19 02:00' < '2026-08-19T02:00Z' 恒成立，C9）。
+ */
+function isoToSqlite(d: Date): string {
+  return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
 /** 解析可空 JSON 字段（对象或 null）。 */
@@ -1127,7 +1138,7 @@ export async function getEventLog(eventType?: string, limit = 100) {
     id: rowId(r.id),
     event_type: r.event_type,
     entity_id: rowId(r.entity_id),
-    payload: tryParseJson(r.payload as string),
+    payload: parseJsonOrNull(r.payload as string), // 对象 payload 不被丢成 []
     created_at: r.created_at,
   }));
 }

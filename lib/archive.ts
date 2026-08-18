@@ -194,7 +194,8 @@ export async function fetchLiveNews() {
 export async function archiveNews() {
   const active = getActiveNewsSources();
   const counts = { duplicates: 0 };
-  const sourceCounts: Record<string, number> = {};
+  // 预填充 0：空结果/失败信源也计入统计，避免日志只含 >0 信源造成误导（C19）
+  const sourceCounts: Record<string, number> = Object.fromEntries(active.map((p) => [p.id, 0]));
 
   // Fetch from all active sources in parallel
   const results = await Promise.all(active.map((p) => p.fetch()));

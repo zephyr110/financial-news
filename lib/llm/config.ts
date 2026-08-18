@@ -9,7 +9,7 @@
  * All values driven by environment variables with DeepSeek-compatible defaults.
  * To switch providers (OpenAI, Anthropic, etc.), change the env vars — no code changes needed.
  *
- * @env LLM_API_KEY        — API key (falls back to DEEPSEEK_API_KEY, then ANTHROPIC_AUTH_TOKEN)
+ * @env LLM_API_KEY        — API key (falls back to DEEPSEEK_API_KEY)
  * @env LLM_BASE_URL       — Base URL for chat completions endpoint (default: DeepSeek)
  * @env LLM_MODEL          — Model name (default: deepseek-v4-flash)
  * @env LLM_TEMPERATURE    — Sampling temperature 0-2 (default: 0.1)
@@ -18,7 +18,9 @@
  */
 
 export const LLM_CONFIG = {
-  apiKey: process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN,
+  // client 始终发送 OpenAI 兼容请求到 baseUrl（DeepSeek 默认）——ANTHROPIC_AUTH_TOKEN
+  // 是 Anthropic 专属格式，不能作为 OpenAI 兼容 key 使用，移除该回退。
+  apiKey: process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY,
   baseUrl: process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1',
   model: process.env.LLM_MODEL || 'deepseek-v4-flash',
   temperature: parseFloat(process.env.LLM_TEMPERATURE) || 0.1,
