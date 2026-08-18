@@ -8,6 +8,9 @@ const db = vi.hoisted(() => ({
   touchAgentSession: vi.fn().mockResolvedValue(undefined),
   logEvent: vi.fn().mockResolvedValue(undefined),
   getAgentMessages: vi.fn().mockResolvedValue([]),
+  // 工具依赖的只读查询也 mock 掉：测试不依赖真实 DB 状态（sweep#1）
+  getBacktestByIndustry: vi.fn().mockResolvedValue([]),
+  getEventThreadById: vi.fn().mockResolvedValue(null),
   EVENT_TYPES: {
     NEWS_INGESTED: 'news.ingested',
     SIGNAL_SCORED: 'signal.scored',
@@ -95,17 +98,29 @@ describe('runAgentTurn', () => {
     expect(db.appendAgentMessage.mock.calls.some((c) => c[2].includes('工具不存在'))).toBe(true);
   });
 
-  it('工具执行失败 → ok=false 且模型仍可继续', async () => {
-    // get_backtest 在真实 DB 无数据时返回 '暂无回测数据'，不抛错；
-    // 这里直接断言错误分支：把 search_news 换成会抛错的工具场景
+  it('回测无数据 → 返回提示文本，工具记为成功', async () => {
+    // getBacktestByIndustry 已 mock（[]），不再依赖真实 DB 状态
     llm.chatCompletion
       .mockResolvedValueOnce({ content: '{"tool":"get_backtest","args":{"industry":"__不存在__"}}' })
       .mockResolvedValueOnce({ content: '好的。' });
 
     const result = await runAgentTurn({ userMessage: '回测' });
-    // 真实执行 get_backtest 不抛错（返回提示文本），工具仍记为成功
     expect(result.toolLog[0].ok).toBe(true);
     expect(result.toolLog[0].summary).toContain('暂无回测数据');
+  });
+
+  it('工具执行抛错 → ok=false 且模型仍可继续', async () => {
+    db.getEventThreadById.mockRejectedValueOnce(new Error('db boom'));
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"watch_event","args":{"eventId":1}}' })
+      .mockResolvedValueOnce({ content: '好的。' });
+
+    const result = await runAgentTurn({ userMessage: '看下事件1' });
+
+    expect(result.toolLog[0].name).toBe('watch_event');
+    expect(result.toolLog[0].ok).toBe(false);
+    expect(result.toolLog[0].summary).toContain('db boom');
+    expect(result.reply).toBe('好的。');
   });
 
   it('步数上限触发截断', async () => {

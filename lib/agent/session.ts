@@ -5,7 +5,7 @@
  *  - 上下文自动压缩：消息总量超过预算时，把最旧消息用 LLM 压成一条 system 摘要，
  *    保留最近消息完整（Mini-Agent 式 token 控制）
  */
-import { getAgentMessages } from '../db';
+import { getAgentMessages, appendAgentMessage } from '../db';
 import { chatCompletion } from '../llm/client';
 import { LLM_CONFIG } from '../llm/config';
 import type { AgentMessage } from './types';
@@ -61,16 +61,17 @@ export async function loadAgentContext(sessionId: number): Promise<AgentMessage[
 
   const keep = messages.slice(-KEEP_RECENT_MESSAGES);
   const toSummarize = messages.slice(0, -KEEP_RECENT_MESSAGES);
+  if (toSummarize.length === 0) return messages; // 消息不足 KEEP_RECENT 条，无需压缩
   console.log(`[agent] Context ${messages.length} msgs exceeds budget — summarizing ${toSummarize.length} old messages.`);
 
   try {
     const summary = await summarizeMessages(toSummarize);
-    return [
-      { role: 'system', content: `（历史对话已压缩）${summary}` },
-      ...keep,
-    ];
+    const compressed: AgentMessage = { role: 'user', content: `（历史对话已压缩）${summary}` };
+    // 摘要持久化回 DB：下次加载直接命中摘要，避免每次循环都重复压缩（spec §10.2 原则2 模型可见即记录）
+    await appendAgentMessage(sessionId, compressed.role, compressed.content);
+    return [compressed, ...keep];
   } catch (err) {
-    console.warn('[agent] Context summarization failed, dropping oldest messages:', err.message);
-    return keep;
+    console.warn('[agent] Context summarization failed, keeping full history:', err.message);
+    return messages; // 宁可上下文超预算，不可丢消息
   }
 }

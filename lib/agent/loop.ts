@@ -62,82 +62,96 @@ export interface RunTurnOptions {
  */
 export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResult & { sessionId: number }> {
   if (!LLM_CONFIG.apiKey) {
-    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY / ANTHROPIC_AUTH_TOKEN) environment variable.');
+    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
   }
 
-  let sessionId = opts.sessionId ?? (await createAgentSession(opts.userMessage.slice(0, 20)));
-  if (opts.sessionId == null) {
-    await appendAgentMessage(sessionId, 'user', opts.userMessage);
-  } else {
-    await appendAgentMessage(sessionId, 'user', opts.userMessage);
-    await touchAgentSession(sessionId, opts.userMessage.slice(0, 20));
-  }
-  await logEvent(EVENT_TYPES.AGENT_QUERY, { entityId: sessionId, payload: { message: opts.userMessage.slice(0, 100) } });
-
-  const history = await loadAgentContext(sessionId);
-  const toolLog: AgentTurnResult['toolLog'] = [];
-  const turnMessages: { role: 'user' | 'assistant'; content: string }[] = [
-    { role: 'user', content: opts.userMessage },
-  ];
-
-  let steps = 0;
-  let reply = '';
-
-  for (; steps < MAX_STEPS; steps++) {
-    const messages = [
-      { role: 'system', content: `${AGENT_SYSTEM_PROMPT}\n\n可用工具：\n${buildToolPrompt()}` },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
-      ...turnMessages,
-    ];
-
-    const { content } = await chatCompletion({ messages, maxTokens: 4096 });
-
-    const toolCall = tryParseToolCall(content);
-    if (!toolCall?.tool) {
-      // 最终回答
-      reply = content.trim();
-      await appendAgentMessage(sessionId, 'assistant', reply);
-      await touchAgentSession(sessionId);
-      return { sessionId, reply, steps: steps + 1, toolLog, truncated: false };
+  let sessionId: number;
+  try {
+    sessionId = opts.sessionId ?? (await createAgentSession(opts.userMessage.slice(0, 20)));
+    if (opts.sessionId == null) {
+      await appendAgentMessage(sessionId, 'user', opts.userMessage);
+    } else {
+      await appendAgentMessage(sessionId, 'user', opts.userMessage);
+      await touchAgentSession(sessionId, opts.userMessage.slice(0, 20));
     }
+    await logEvent(EVENT_TYPES.AGENT_QUERY, { entityId: sessionId, payload: { message: opts.userMessage.slice(0, 100) } });
 
-    const tool = getTool(toolCall.tool);
-    if (!tool) {
-      const feedback = `【工具不存在】工具 "${toolCall.tool}" 未注册。可用工具：${buildToolPrompt().split('\n').map((l) => l.split(':')[0]).join(', ')}。请重试。`;
-      turnMessages.push({ role: 'user', content: feedback });
-      await appendAgentMessage(sessionId, 'user', feedback);
-      continue;
-    }
+    // history 已包含刚持久化的当前用户消息（loadAgentContext 在其后读取），
+    // turnMessages 只承载本回合后续的工具调用/结果，避免用户消息双发。
+    const history = await loadAgentContext(sessionId);
+    const toolLog: AgentTurnResult['toolLog'] = [];
+    const turnMessages: { role: 'user' | 'assistant'; content: string }[] = [];
 
-    let resultText: string;
-    let ok = true;
-    try {
-      resultText = await tool.execute(toolCall.args || {});
-      if (resultText.length > TOOL_RESULT_MAX_CHARS) {
-        resultText = resultText.slice(0, TOOL_RESULT_MAX_CHARS) + '\n…(结果过长已截断)';
+    let steps = 0;
+    let reply = '';
+
+    for (; steps < MAX_STEPS; steps++) {
+      const messages = [
+        { role: 'system', content: `${AGENT_SYSTEM_PROMPT}\n\n可用工具：\n${buildToolPrompt()}` },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
+        ...turnMessages,
+      ];
+
+      const { content } = await chatCompletion({ messages, maxTokens: 4096 });
+
+      const contentText = (content || '').trim();
+      if (!contentText) {
+        throw new Error('LLM 返回空内容，请重试');
       }
-    } catch (err) {
-      ok = false;
-      resultText = `工具执行失败: ${(err as Error).message}`;
+
+      const toolCall = tryParseToolCall(contentText);
+      if (!toolCall?.tool) {
+        // 最终回答
+        reply = contentText;
+        await appendAgentMessage(sessionId, 'assistant', reply);
+        await touchAgentSession(sessionId);
+        return { sessionId, reply, steps: steps + 1, toolLog, truncated: false };
+      }
+
+      const tool = getTool(toolCall.tool);
+      if (!tool) {
+        const feedback = `【工具不存在】工具 "${toolCall.tool}" 未注册。可用工具：${buildToolPrompt().split('\n').map((l) => l.split(':')[0]).join(', ')}。请重试。`;
+        turnMessages.push({ role: 'user', content: feedback });
+        await appendAgentMessage(sessionId, 'user', feedback);
+        continue;
+      }
+
+      let resultText: string;
+      let ok = true;
+      try {
+        resultText = await tool.execute(toolCall.args || {});
+        if (resultText.length > TOOL_RESULT_MAX_CHARS) {
+          resultText = resultText.slice(0, TOOL_RESULT_MAX_CHARS) + '\n…(结果过长已截断)';
+        }
+      } catch (err) {
+        ok = false;
+        resultText = `工具执行失败: ${(err as Error).message}`;
+      }
+      toolLog.push({
+        name: tool.name,
+        args: toolCall.args || {},
+        ok,
+        summary: resultText.split('\n')[0].slice(0, 100),
+      });
+
+      const meta = { toolCall: { name: tool.name, args: toolCall.args || {} } };
+      // 持久化模型的真实输出（JSON 工具调用），而非占位符——跨轮次重放时模型
+      // 仍能看到自己此前的调用内容（模型可见即记录）
+      await appendAgentMessage(sessionId, 'assistant', contentText, meta);
+      await appendAgentMessage(sessionId, 'user', `【工具 ${tool.name} 结果】\n${resultText}`, { toolResult: { name: tool.name, ok, content: resultText.slice(0, 200) } });
+
+      turnMessages.push({ role: 'assistant', content: contentText });
+      turnMessages.push({ role: 'user', content: `【工具 ${tool.name} 结果】\n${resultText}` });
     }
-    toolLog.push({
-      name: tool.name,
-      args: toolCall.args || {},
-      ok,
-      summary: resultText.split('\n')[0].slice(0, 100),
-    });
 
-    const meta = { toolCall: { name: tool.name, args: toolCall.args || {} } };
-    await appendAgentMessage(sessionId, 'assistant', `调用工具 ${tool.name}`, meta);
-    await appendAgentMessage(sessionId, 'user', `【工具 ${tool.name} 结果】\n${resultText}`, { toolResult: { name: tool.name, ok, content: resultText.slice(0, 200) } });
-
-    turnMessages.push({ role: 'assistant', content: content.trim() });
-    turnMessages.push({ role: 'user', content: `【工具 ${tool.name} 结果】\n${resultText}` });
+    // 步数上限：回退为回答当前已知内容
+    reply = `已达到单轮工具调用上限（${MAX_STEPS} 步），以下是目前掌握的信息。如需继续深入，请追问。`;
+    await appendAgentMessage(sessionId, 'assistant', reply);
+    await touchAgentSession(sessionId);
+    return { sessionId, reply, steps, toolLog, truncated: true };
+  } catch (err) {
+    // 错误时携带已创建的 sessionId：客户端失败重试可续用同一会话，避免孤儿会话
+    if (sessionId != null) (err as Error & { sessionId?: number }).sessionId = sessionId;
+    throw err;
   }
-
-  // 步数上限：回退为回答当前已知内容
-  reply = `已达到单轮工具调用上限（${MAX_STEPS} 步），以下是目前掌握的信息。如需继续深入，请追问。`;
-  await appendAgentMessage(sessionId, 'assistant', reply);
-  await touchAgentSession(sessionId);
-  return { sessionId, reply, steps, toolLog, truncated: true };
 }

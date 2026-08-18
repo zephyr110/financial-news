@@ -40,8 +40,9 @@ export default function AgentPage() {
     setError(null);
     setLoading(true);
 
-    // 乐观渲染用户消息
-    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: "user", content: text }]);
+    // 乐观渲染用户消息（id 在闭包内固定，失败时按同一 id 移除）
+    const optimisticId = `local-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: text }]);
 
     try {
       const res = await fetch("/api/agent", {
@@ -51,21 +52,23 @@ export default function AgentPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        // 服务端错误会携带已创建的 sessionId：保留它，失败重试续用同一会话而非创建孤儿会话
+        if (data.sessionId) setSessionId(data.sessionId);
         if (res.status === 503) {
           setError("研究助手未配置：请设置 LLM_API_KEY 环境变量（或 DEEPSEEK_API_KEY）。");
         } else {
           setError(data.error || `请求失败（HTTP ${res.status}）`);
         }
         // 移除乐观渲染的 user 消息，让用户重试
-        setMessages((prev) => prev.filter((m) => m.id !== `local-${Date.now()}`));
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         return;
       }
 
       setSessionId(data.sessionId);
       setMessages((prev) => [
         ...prev,
-        ...(data.toolLog || []).map((t) => ({
-          id: `tool-${Date.now()}-${t.name}`,
+        ...(data.toolLog || []).map((t, i) => ({
+          id: `tool-${Date.now()}-${i}-${t.name}`,
           role: "assistant" as const,
           content: "",
           toolCall: { name: t.name, args: t.args } as ToolCallInfo,
@@ -80,7 +83,7 @@ export default function AgentPage() {
     } catch (e) {
       console.error("Agent request failed:", e);
       setError("网络错误，请稍后重试");
-      setMessages((prev) => prev.filter((m) => m.id !== `local-${Date.now()}`));
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
     } finally {
       setLoading(false);
       inputRef.current?.focus();

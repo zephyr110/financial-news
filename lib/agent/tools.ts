@@ -29,8 +29,10 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       required: ['query'],
     },
     async execute(args) {
+      const query = String(args.query || '').trim();
+      if (query.length < 2) return 'query 至少 2 个字符。'; // 空查询直接提示，勿误导为"无结果"（C22）
       const result = await searchSignals({
-        query: String(args.query || ''),
+        query,
         hoursBack: Number(args.hoursBack) || 720,
         minScore: Number(args.minScore) || 1,
         limit: Number(args.limit) || 10,
@@ -62,7 +64,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       const threads = await getEventThreads(Number(args.hoursBack) || 24);
       if (threads.length === 0) return '当前时间窗内没有事件线索。';
       return threads.map((t) =>
-        `[${t.stage}] ${t.title}（置信度:${t.confidence}，涉及行业:${(t.industries || []).join('/')}，` +
+        `#${t.id} [${t.stage}] ${t.title}（置信度:${t.confidence}，涉及行业:${(t.industries || []).join('/')}，` +
         `关联信号:${(t.news_ids || []).length}条）\n${t.narrative}` +
         (t.watch_points?.length ? `\n关注点: ${t.watch_points.join('；')}` : '')
       ).join('\n\n');
@@ -129,7 +131,8 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
     },
     async execute(args) {
       const id = Number(args.eventId);
-      if (!Number.isFinite(id)) return 'eventId 必须是数字。';
+      // Number('') = 0：空串也拦截，避免 0 被当作合法 id 查库（C22）
+      if (!Number.isFinite(id) || id <= 0) return 'eventId 必须是大于 0 的数字。';
       const thread = await getEventThreadById(id);
       if (!thread) return `事件线索 ${id} 不存在（可能已过期，可用 get_event_threads 查看最新线索）。`;
       const signalLines = thread.signals.map((s) =>
