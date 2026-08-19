@@ -93,6 +93,7 @@ async function initSchema(db) {
       confidence    TEXT    NOT NULL,  -- high|medium
       industries    TEXT,              -- JSON: ["industry", ...]
       watch_points  TEXT,              -- JSON: ["point", ...]
+      dedup_key     TEXT,              -- 幂等键：规范化 title（P1.2）
       created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -139,6 +140,21 @@ async function initSchema(db) {
     DROP INDEX IF EXISTS idx_event_created;
     DROP INDEX IF EXISTS idx_event_entity;
 
+    -- 数据管线任务状态机（P1.1）：每次 cron 调用的生命周期
+    -- status: running → success | failed；batch_id 相同视为同一批次的重试（retry_count 递增）
+    CREATE TABLE IF NOT EXISTS pipeline_run (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_name        TEXT    NOT NULL,  -- fetch | analyze | deep-analyze | event-threads | fetch-market
+      batch_id        TEXT    NOT NULL,  -- 调用方批次标识（QStash 消息 ID 或小时时间窗）
+      retry_count     INTEGER NOT NULL DEFAULT 0,
+      status          TEXT    NOT NULL,  -- running | success | failed
+      items_processed INTEGER,
+      error           TEXT,
+      started_at      TEXT    NOT NULL,  -- ISO 格式（与 news_archive.published_at 一致）
+      finished_at     TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_job_time ON pipeline_run(job_name, started_at);
+
     -- 研究 Agent 会话（spec §10.3 阶段 B，Session Note 式持久记忆）
     CREATE TABLE IF NOT EXISTS agent_session (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +172,27 @@ async function initSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_msg_session ON agent_message(session_id, id);
   `);
+
+  // 迁移：event_threads 补充 dedup_key 幂等键（P1.2）。
+  // 必须在建表（上面 executeMultiple）之后执行；每步独立幂等，
+  // 单步失败不阻塞后续（列已存在/表不存在时静默跳过）。
+  try {
+    await db.execute('ALTER TABLE event_threads ADD COLUMN dedup_key TEXT');
+  } catch { /* column already exists */ }
+  // 合并历史重复：同规范化标题只保留最新一行（首次迁移时执行一次）
+  try {
+    await db.execute(`
+      DELETE FROM event_threads
+      WHERE id NOT IN (SELECT MAX(id) FROM event_threads GROUP BY lower(trim(title)))
+    `);
+  } catch { /* dedup_key 列尚未存在 */ }
+  // 回填幂等键（对历史行；新行由 saveEventThreads 写入）
+  try {
+    await db.execute(`UPDATE event_threads SET dedup_key = lower(trim(title)) WHERE dedup_key IS NULL`);
+  } catch { /* dedup_key 列尚未存在 */ }
+  try {
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_dedup ON event_threads(dedup_key)');
+  } catch { /* dedup_key 列尚未存在 */ }
 }
 
 function rowId(value) {
@@ -546,16 +583,18 @@ export async function saveEventThreads(threads) {
   await db.execute({ sql: 'DELETE FROM event_threads WHERE created_at < ?', args: [cutoff] });
 
   for (const t of threads) {
-    // Skip if a thread with same title exists from the past 24h
-    const existing = await db.execute({
-      sql: 'SELECT id FROM event_threads WHERE title = ? AND created_at > ?',
-      args: [t.title, isoToSqlite(new Date(Date.now() - 24 * 60 * 60 * 1000))],
-    });
-    if (existing.rows.length > 0) continue;
-
+    // 幂等键 = 规范化标题：同标题线程不重复创建，而是更新内容（stage 演进语义）
     await db.execute({
-      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points, dedup_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(dedup_key) DO UPDATE SET
+              title = excluded.title,
+              news_ids = excluded.news_ids,
+              narrative = excluded.narrative,
+              stage = excluded.stage,
+              confidence = excluded.confidence,
+              industries = excluded.industries,
+              watch_points = excluded.watch_points`,
       args: [
         t.title || '未命名事件',
         JSON.stringify(t.news_ids || []),
@@ -564,9 +603,18 @@ export async function saveEventThreads(threads) {
         t.confidence || 'medium',
         JSON.stringify(t.related_industries || []),
         JSON.stringify(t.key_watch_points || []),
+        normalizeThreadTitle(t.title),
       ],
     });
   }
+}
+
+/**
+ * 线程标题规范化：trim + 压缩内部空白 + 小写，作为幂等键。
+ * SQL 迁移的回填用 lower(trim(title)) 近似，此处应用层更严格（内部空白也压缩）。
+ */
+export function normalizeThreadTitle(title: string | null | undefined): string {
+  return String(title || '未命名事件').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 /** Get recent event threads. */
