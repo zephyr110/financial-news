@@ -2,7 +2,7 @@
  * Eastmoney sector index data fetcher.
  * Fetches daily quote for 申万 industry sector indices via the quote API.
  */
-import { getDb } from './db';
+import { getDb, getBacktestByIndustry } from './db';
 
 const EM_QUOTE_URL = 'https://push2.eastmoney.com/api/qt/stock/get';
 
@@ -278,4 +278,22 @@ export async function getBacktestSummary() {
     }),
   ]);
   return { byScore: byScore.rows, byIndustry: byIndustry.rows };
+}
+
+/**
+ * P2.4 线索页市场上下文：线程涉及行业的今日行情 + 近 90 天回测行。
+ * 供 /api/thread/[id] 与 thread/[id].tsx SSG 共用（与 signal 详情页同构组装）。
+ */
+export async function getThreadMarketContext(industries: string[]) {
+  const inds = Array.isArray(industries) ? industries : [];
+  const [today, backtest] = await Promise.all([
+    getTodayMarketData(20),
+    getBacktestByIndustry(90),
+  ]);
+  const matches = (name: string | null | undefined) =>
+    !!name && inds.some((ind: string) => name.includes(ind) || ind.includes(name));
+  return {
+    market: (today || []).filter((m) => matches(m.name as string | undefined)),
+    backtest: (backtest || []).filter((b) => matches(b.industry as string | undefined)),
+  };
 }

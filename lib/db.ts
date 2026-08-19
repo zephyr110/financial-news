@@ -719,7 +719,7 @@ export async function getEventThreadById(id: number) {
     const sigResult = await db.execute({
       sql: `
         SELECT a.id, a.signal_score, a.category, a.summary, n.published_at,
-               substr(n.content, 1, 200) as content
+               substr(n.content, 1, 200) as content, n.docurl, n.source
         FROM analysis_result a
         JOIN news_archive n ON n.id = a.news_id
         WHERE a.id IN (${placeholders})
@@ -734,6 +734,8 @@ export async function getEventThreadById(id: number) {
       summary: r.summary,
       published_at: r.published_at,
       content: (r.content as string || ''), // SQL 已 substr 截断
+      docurl: (r.docurl as string) || null, // P2.4 起因段原文链接
+      source: (r.source as string) || null,
     }));
   }
 
