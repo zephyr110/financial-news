@@ -43,55 +43,67 @@ const SECTOR_CODES = [
 ];
 
 /**
+ * Fetch a single sector index quote. Never throws; returns [] on failure.
+ */
+async function fetchSectorQuote(code: string) {
+  try {
+    const params = new URLSearchParams({
+      secid: `90.${code}`,
+      fields: 'f43,f44,f45,f46,f47,f48,f57,f58,f169,f170',
+    });
+    const res = await fetch(`${EM_QUOTE_URL}?${params}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const d = json?.data;
+    if (!d || d.f43 == null) return []; // f43 = latest price, skip if missing
+
+    // Calculate change_pct from f169 (涨跌额) and f43 (最新价):
+    //   prevClose = f43 - f169
+    //   change_pct = f169 / prevClose * 100
+    // This is mathematically correct regardless of f170 format.
+    let changePct = null;
+    if (d.f169 != null && d.f43 != null && d.f43 !== d.f169) {
+      const prevClose = d.f43 - d.f169;
+      if (prevClose > 0) {
+        changePct = (d.f169 / prevClose) * 100;
+      } else {
+        console.warn(`[market] Invalid prevClose=${prevClose} for ${d.f58} (f43=${d.f43}, f169=${d.f169})`);
+      }
+    }
+    // Log if value seems extreme (possible data corruption), but don't drop
+    if (changePct != null && Math.abs(changePct) > 20) {
+      console.warn(`[market] Large change for ${d.f58}: ${changePct.toFixed(2)}%`);
+    }
+
+    return [{
+      code: d.f57,      // sector code
+      name: d.f58,      // sector name
+      type: 'index',    // sector index, not individual stock
+      close: d.f43,     // latest price (or use f44=high, f45=low, f46=open)
+      change_pct: changePct,
+      volume: d.f47,    // volume
+    }];
+  } catch (err) {
+    console.error(`[market] Failed to fetch ${code}:`, err.message);
+    return [];
+  }
+}
+
+/**
  * Fetch daily sector index quote data.
  * Uses secid=90.{code} to get the sector index itself (not constituent stocks).
+ * 分片并发（每片 5 个）抓取 29 个板块：串行 30-60s → 并行 ~10s。
  */
 export async function fetchMarketData() {
   const allRows = [];
 
-  for (const code of SECTOR_CODES) {
-    try {
-      const params = new URLSearchParams({
-        secid: `90.${code}`,
-        fields: 'f43,f44,f45,f46,f47,f48,f57,f58,f169,f170',
-      });
-      const res = await fetch(`${EM_QUOTE_URL}?${params}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const d = json?.data;
-      if (!d || d.f43 == null) continue; // f43 = latest price, skip if missing
-
-      // Calculate change_pct from f169 (涨跌额) and f43 (最新价):
-      //   prevClose = f43 - f169
-      //   change_pct = f169 / prevClose * 100
-      // This is mathematically correct regardless of f170 format.
-      let changePct = null;
-      if (d.f169 != null && d.f43 != null && d.f43 !== d.f169) {
-        const prevClose = d.f43 - d.f169;
-        if (prevClose > 0) {
-          changePct = (d.f169 / prevClose) * 100;
-        } else {
-          console.warn(`[market] Invalid prevClose=${prevClose} for ${d.f58} (f43=${d.f43}, f169=${d.f169})`);
-        }
-      }
-      // Log if value seems extreme (possible data corruption), but don't drop
-      if (changePct != null && Math.abs(changePct) > 20) {
-        console.warn(`[market] Large change for ${d.f58}: ${changePct.toFixed(2)}%`);
-      }
-
-      allRows.push({
-        code: d.f57,      // sector code
-        name: d.f58,      // sector name
-        type: 'index',    // sector index, not individual stock
-        close: d.f43,     // latest price (or use f44=high, f45=low, f46=open)
-        change_pct: changePct,
-        volume: d.f47,    // volume
-      });
-    } catch (err) {
-      console.error(`[market] Failed to fetch ${code}:`, err.message);
-    }
+  for (let i = 0; i < SECTOR_CODES.length; i += 5) {
+    const chunk = SECTOR_CODES.slice(i, i + 5);
+    const rows = await Promise.all(chunk.map(fetchSectorQuote));
+    allRows.push(...rows.flat());
   }
 
   return allRows;
@@ -160,25 +172,42 @@ export async function runBacktest(daysBack = 90) {
     }
   }
 
+  // 一次拉取窗口内全部行情，内存中按行业索引——避免每个 (date, industry)
+  // 键 2 次串行 DB 往返的 N+1 查询风暴（上千键 × 远端 DB 往返 = 数分钟超时）
+  const market = await db.execute({
+    sql: `SELECT name, trade_date, change_pct FROM market_data
+          WHERE trade_date >= ?
+          ORDER BY name, trade_date ASC`,
+    args: [since.slice(0, 10)],
+  });
+  const marketByIndustry = new Map<string, Array<{ trade_date: string; change_pct: number | null }>>();
+  for (const row of market.rows) {
+    const list = marketByIndustry.get(row.name) || [];
+    list.push({ trade_date: row.trade_date, change_pct: row.change_pct });
+    marketByIndustry.set(row.name, list);
+  }
+
   // Use INSERT OR REPLACE with UNIQUE(signal_date, industry) — atomic, no DELETE needed
+  const upserts: Array<[string, string, number, number, number | null, number | null, number | null]> = [];
   for (const [, sig] of signalMap) {
-    let day1 = null, day3 = null, day7 = null;
+    const rows = marketByIndustry.get(sig.industry) || [];
+    const start = rows.findIndex((r) => r.trade_date > sig.date);
+    const fwd = start >= 0 ? rows.slice(start, start + 7) : [];
 
-    const marketRows = await db.execute({
-      sql: `SELECT trade_date, change_pct FROM market_data
-            WHERE name = ? AND trade_date > ?
-            ORDER BY trade_date ASC LIMIT 7`,
-      args: [sig.industry, sig.date],
-    });
+    const day1 = fwd.length >= 1 ? fwd[0].change_pct : null;
+    const day3 = fwd.length >= 3 ? fwd.slice(0, 3).reduce((s, r) => s + (r.change_pct ?? 0), 0) : null;
+    const day7 = fwd.length >= 7 ? fwd.slice(0, 7).reduce((s, r) => s + (r.change_pct ?? 0), 0) : null;
+    upserts.push([sig.date, sig.industry, sig.maxScore, sig.count, day1, day3, day7]);
+  }
 
-    if (marketRows.rows.length >= 1) day1 = marketRows.rows[0].change_pct;
-    if (marketRows.rows.length >= 3) day3 = marketRows.rows.slice(0, 3).reduce((s, r) => s + r.change_pct, 0);
-    if (marketRows.rows.length >= 7) day7 = marketRows.rows.slice(0, 7).reduce((s, r) => s + r.change_pct, 0);
-
+  // 批量写入（每批 50 行，仿 insertNewsBatch）
+  for (let i = 0; i < upserts.length; i += 50) {
+    const batch = upserts.slice(i, i + 50);
+    const values = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const args = batch.flatMap(([date, industry, score, count, d1, d3, d7]) => [date, industry, score, count, d1, d3, d7]);
     await db.execute({
-      sql: `INSERT OR REPLACE INTO backtest_result (signal_date, industry, signal_score, signal_count, day_1_return, day_3_return, day_7_return)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [sig.date, sig.industry, sig.maxScore, sig.count, day1, day3, day7],
+      sql: `INSERT OR REPLACE INTO backtest_result (signal_date, industry, signal_score, signal_count, day_1_return, day_3_return, day_7_return) VALUES ${values}`,
+      args,
     });
   }
 
