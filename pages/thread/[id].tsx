@@ -249,17 +249,18 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
 }
 
 /**
- * ISR: pre-render recent event threads, fallback for the rest.
+ * ISR: 只预渲染最近的高优先级线索（Top 50），其余走 blocking fallback。
+ * P1.5 构建期 DB 解耦：限制构建期 DB 查询量，避免全量预渲染拖垮 build。
  */
 export async function getStaticPaths() {
   try {
-    const threads = await getEventThreads(24 * 7);
+    const threads = await getEventThreads(24 * 7, 50);
     return {
       paths: threads.map((t: any) => ({ params: { id: String(t.id) } })),
-      fallback: true,
+      fallback: 'blocking',
     };
   } catch {
-    return { paths: [], fallback: true };
+    return { paths: [], fallback: 'blocking' };
   }
 }
 

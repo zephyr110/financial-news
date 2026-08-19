@@ -56,7 +56,7 @@ async function initSchema(db) {
 
   // 迁移：老库补充 docurl 列（列已存在时 ALTER 抛错，静默跳过）
   try {
-    await db.execute('ALTER TABLE news_archive ADD COLUMN docurl TEXT');
+    await db.execute({ sql: 'ALTER TABLE news_archive ADD COLUMN docurl TEXT', args: [] });
   } catch {
     // column already exists
   }
@@ -183,22 +183,29 @@ async function initSchema(db) {
   // 迁移：event_threads 补充 dedup_key 幂等键（P1.2）。
   // 必须在建表（上面 executeMultiple）之后执行；每步独立幂等，
   // 单步失败不阻塞后续（列已存在/表不存在时静默跳过）。
+  // 注：libsql 字符串形式 execute 在本地 file: 库上会 native panic，统一用单对象形式。
   try {
-    await db.execute('ALTER TABLE event_threads ADD COLUMN dedup_key TEXT');
+    await db.execute({ sql: 'ALTER TABLE event_threads ADD COLUMN dedup_key TEXT', args: [] });
   } catch { /* column already exists */ }
   // 合并历史重复：同规范化标题只保留最新一行（首次迁移时执行一次）
   try {
-    await db.execute(`
-      DELETE FROM event_threads
-      WHERE id NOT IN (SELECT MAX(id) FROM event_threads GROUP BY lower(trim(title)))
-    `);
+    await db.execute({
+      sql: `
+        DELETE FROM event_threads
+        WHERE id NOT IN (SELECT MAX(id) FROM event_threads GROUP BY lower(trim(title)))
+      `,
+      args: [],
+    });
   } catch { /* dedup_key 列尚未存在 */ }
   // 回填幂等键（对历史行；新行由 saveEventThreads 写入）
   try {
-    await db.execute(`UPDATE event_threads SET dedup_key = lower(trim(title)) WHERE dedup_key IS NULL`);
+    await db.execute({
+      sql: 'UPDATE event_threads SET dedup_key = lower(trim(title)) WHERE dedup_key IS NULL',
+      args: [],
+    });
   } catch { /* dedup_key 列尚未存在 */ }
   try {
-    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_dedup ON event_threads(dedup_key)');
+    await db.execute({ sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_dedup ON event_threads(dedup_key)', args: [] });
   } catch { /* dedup_key 列尚未存在 */ }
 }
 
@@ -503,10 +510,10 @@ export async function getAnalysisStats(hoursBack = 24) {
 export async function getDbCounts() {
   const db = await getDb();
   const [totalNews, analyzedNews, bySource, byScore] = await Promise.all([
-    db.execute('SELECT COUNT(*) as c FROM news_archive'),
-    db.execute('SELECT COUNT(*) as c FROM analysis_result'),
-    db.execute('SELECT source, COUNT(*) as c FROM news_archive GROUP BY source'),
-    db.execute('SELECT signal_score, COUNT(*) as c FROM analysis_result GROUP BY signal_score ORDER BY signal_score DESC'),
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM news_archive', args: [] }),
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM analysis_result', args: [] }),
+    db.execute({ sql: 'SELECT source, COUNT(*) as c FROM news_archive GROUP BY source', args: [] }),
+    db.execute({ sql: 'SELECT signal_score, COUNT(*) as c FROM analysis_result GROUP BY signal_score ORDER BY signal_score DESC', args: [] }),
   ]);
   return {
     total_news: totalNews.rows[0]?.c ?? 0,
@@ -631,15 +638,20 @@ export async function getIndustryTrend(hoursBack = 24) {
 export async function saveEventThreads(threads) {
   if (!Array.isArray(threads)) return;
   const db = await getDb();
-  // Clean threads older than 7 days, keep recent history
-  const cutoff = isoToSqlite(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-  await db.execute({ sql: 'DELETE FROM event_threads WHERE created_at < ?', args: [cutoff] });
+  // Clean threads older than 7 days, keep recent history.
+  // julianday 比较兼容存量 SQLite 格式（'YYYY-MM-DD HH:MM:SS'）与新写 ISO 格式（P1.6 写侧统一）
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await db.execute({
+    sql: 'DELETE FROM event_threads WHERE julianday(created_at) < julianday(?)',
+    args: [cutoff],
+  });
 
+  const now = new Date().toISOString();
   for (const t of threads) {
     // 幂等键 = 规范化标题：同标题线程不重复创建，而是更新内容（stage 演进语义）
     await db.execute({
-      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points, dedup_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points, dedup_key, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(dedup_key) DO UPDATE SET
               title = excluded.title,
               news_ids = excluded.news_ids,
@@ -657,6 +669,7 @@ export async function saveEventThreads(threads) {
         JSON.stringify(t.related_industries || []),
         JSON.stringify(t.key_watch_points || []),
         normalizeThreadTitle(t.title),
+        now,
       ],
     });
   }
@@ -670,13 +683,15 @@ export function normalizeThreadTitle(title: string | null | undefined): string {
   return String(title || '未命名事件').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-/** Get recent event threads. */
-export async function getEventThreads(hoursBack = 24) {
+/** Get recent event threads. limit 用于 ISR 预渲染裁剪（P1.5 构建期 DB 解耦）。 */
+export async function getEventThreads(hoursBack = 24, limit = 500) {
   const db = await getDb();
-  const since = isoToSqlite(new Date(Date.now() - hoursBack * 60 * 60 * 1000));
+  const safeHours = Number.isFinite(hoursBack) ? Math.min(hoursBack, 24 * 30) : 24;
+  const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 1000) : 500;
+  const since = isoToSqlite(new Date(Date.now() - safeHours * 60 * 60 * 1000));
   const result = await db.execute({
-    sql: 'SELECT * FROM event_threads WHERE created_at >= ? ORDER BY created_at DESC',
-    args: [since],
+    sql: 'SELECT * FROM event_threads WHERE created_at >= ? ORDER BY created_at DESC LIMIT ?',
+    args: [since, safeLimit],
   });
   return result.rows.map(r => ({
     ...r,
@@ -1137,9 +1152,9 @@ export async function getBacktestByIndustry(daysBack = 90) {
     sql: `
       SELECT industry,
              COUNT(*) as samples,
-             ROUND(AVG(day_1_return), 2) as avg_d1,
-             ROUND(AVG(day_3_return), 2) as avg_d3,
-             ROUND(AVG(day_7_return), 2) as avg_d7,
+             COALESCE(ROUND(AVG(day_1_return), 2), 0) as avg_d1,
+             COALESCE(ROUND(AVG(day_3_return), 2), 0) as avg_d3,
+             COALESCE(ROUND(AVG(day_7_return), 2), 0) as avg_d7,
              ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
       FROM backtest_result
       WHERE day_1_return IS NOT NULL
