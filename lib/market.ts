@@ -224,7 +224,7 @@ export async function runBacktest(daysBack = 90) {
     });
   }
 
-  const stats = await db.execute('SELECT COUNT(*) as total FROM backtest_result');
+  const stats = await db.execute({ sql: 'SELECT COUNT(*) as total FROM backtest_result', args: [] });
   console.log(`[backtest] Completed: ${stats.rows[0]?.total || 0} signal-market pairs analyzed`);
   return { pairs: stats.rows[0]?.total || 0 };
 }
@@ -255,9 +255,9 @@ export async function getBacktestSummary() {
     db.execute({
       sql: `SELECT signal_score,
               COUNT(*) as samples,
-              ROUND(AVG(day_1_return), 2) as avg_d1,
-              ROUND(AVG(day_3_return), 2) as avg_d3,
-              ROUND(AVG(day_7_return), 2) as avg_d7,
+              COALESCE(ROUND(AVG(day_1_return), 2), 0) as avg_d1,
+              COALESCE(ROUND(AVG(day_3_return), 2), 0) as avg_d3,
+              COALESCE(ROUND(AVG(day_7_return), 2), 0) as avg_d7,
               ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
             FROM backtest_result
             WHERE day_1_return IS NOT NULL
@@ -267,8 +267,8 @@ export async function getBacktestSummary() {
     db.execute({
       sql: `SELECT industry, signal_score,
               COUNT(*) as samples,
-              ROUND(AVG(day_1_return), 2) as avg_d1,
-              ROUND(AVG(day_3_return), 2) as avg_d3,
+              COALESCE(ROUND(AVG(day_1_return), 2), 0) as avg_d1,
+              COALESCE(ROUND(AVG(day_3_return), 2), 0) as avg_d3,
               ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
             FROM backtest_result
             WHERE day_1_return IS NOT NULL

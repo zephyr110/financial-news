@@ -139,17 +139,18 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
 }
 
 /**
- * ISR: pre-render high-score signals, fallback for the rest.
+ * ISR: 只预渲染近 7 天的高分信号（Top 50），其余走 blocking fallback。
+ * P1.5 构建期 DB 解耦：限制构建期 DB 查询量，避免全量预渲染拖垮 build。
  */
 export async function getStaticPaths() {
   try {
-    const signals = await getHighScoreSignals({ daysBack: 7, minScore: 4, limit: 200 });
+    const signals = await getHighScoreSignals({ daysBack: 7, minScore: 4, limit: 50 });
     return {
       paths: signals.map((s: any) => ({ params: { id: String(s.id) } })),
-      fallback: true,
+      fallback: 'blocking',
     };
   } catch {
-    return { paths: [], fallback: true };
+    return { paths: [], fallback: 'blocking' };
   }
 }
 
