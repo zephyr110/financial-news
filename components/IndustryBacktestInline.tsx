@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 interface BacktestIndustryRow {
   industry: string;
   samples: number;
-  avg_d1: number;
-  avg_d3: number;
-  avg_d7: number;
-  win_rate: number;
+  avg_d1: number | null;
+  avg_d3: number | null;
+  avg_d7: number | null;
+  win_rate: number | null;
 }
 
 interface IndustryBacktestInlineProps {
@@ -43,9 +43,11 @@ export default function IndustryBacktestInline({
 
   if (!match) return null;
 
+  // day_3_return 可能为 NULL（该行业窗口内后续行情不足 3 天，AVG 结果为 NULL）
   const d3 = match.avg_d3;
-  const isPositive = d3 > 0;
-  const isNegative = d3 < 0;
+  const hasD3 = d3 != null && !Number.isNaN(d3);
+  const isPositive = hasD3 && d3 > 0;
+  const isNegative = hasD3 && d3 < 0;
 
   return (
     <div
@@ -87,7 +89,7 @@ export default function IndustryBacktestInline({
             isNegative && "text-emerald-600 dark:text-emerald-400"
           )}
         >
-          {d3 > 0 ? "+" : ""}{d3.toFixed(2)}%
+          {hasD3 ? `${d3 > 0 ? "+" : ""}${d3.toFixed(2)}%` : "—"}
         </span>
       </span>
     </div>
