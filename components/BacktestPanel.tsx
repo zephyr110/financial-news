@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, Building2, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBacktestTier, shouldShowNumbers, tierProgress, TIER_LABELS, type BacktestTier } from "@/lib/backtest";
 
 interface BacktestRow {
   signal_score?: number;
@@ -133,32 +134,43 @@ export default function BacktestPanel() {
                 (byIndustry as BacktestRow[])
                   ?.sort((a, b) => b.samples - a.samples)
                   .slice(0, 15)
-                  .map((row, i) => (
-                    <div
-                      key={`${row.industry}-${row.signal_score}`}
-                      className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
-                    >
-                      <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">
-                        {row.industry}
-                        {row.samples < 20 && (
+                  .map((row, i) => {
+                    // P2.3 可信度分层：样本不足只显示行业名 + 进度（不展示数字，R4 只改展示不改数据）
+                    const tier = getBacktestTier(row.samples);
+                    const showNumbers = shouldShowNumbers(tier);
+                    return (
+                      <div
+                        key={`${row.industry}-${row.signal_score}`}
+                        className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
+                      >
+                        <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">
+                          {row.industry}
                           <span
-                            className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 align-middle"
-                            title="样本较少，结论谨慎参考"
+                            className={cn(
+                              "ml-1.5 text-[9px] px-1 py-0.5 rounded align-middle",
+                              tier === "sufficient"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                                : tier === "reference"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                                  : "bg-muted text-muted-foreground"
+                            )}
                           >
-                            样本少
+                            {tier === "accumulating" ? tierProgress(row.samples) : TIER_LABELS[tier]}
                           </span>
-                        )}
-                      </span>
-                      <ScoreBadge score={row.signal_score} />
-                      <div className="sm:hidden text-[11px] text-muted-foreground">
-                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}
+                        </span>
+                        <ScoreBadge score={row.signal_score} />
+                        <div className="sm:hidden text-[11px] text-muted-foreground">
+                          {showNumbers
+                            ? `T+1 ${fmtPct(row.avg_d1, tier)} · T+3 ${fmtPct(row.avg_d3, tier)} · T+7 ${fmtPct(row.avg_d7, tier)}`
+                            : tierProgress(row.samples)}
+                        </div>
+                        <ReturnCell value={row.avg_d1} show={showNumbers} tier={tier} />
+                        <ReturnCell value={row.avg_d3} show={showNumbers} tier={tier} />
+                        <ReturnCell value={row.avg_d7} show={showNumbers} tier={tier} />
+                        <WinRateCell rate={row.win_rate} show={showNumbers} tier={tier} />
                       </div>
-                      <ReturnCell value={row.avg_d1} />
-                      <ReturnCell value={row.avg_d3} />
-                      <ReturnCell value={row.avg_d7} />
-                      <WinRateCell rate={row.win_rate} />
-                    </div>
-                  ))}
+                    );
+                  })}
 
               {/* Score view */}
               {tab === "score" &&
@@ -206,8 +218,8 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
   );
 }
 
-function ReturnCell({ value }: { value: number }) {
-  if (value == null)
+function ReturnCell({ value, show = true, tier }: { value: number; show?: boolean; tier?: BacktestTier }) {
+  if (!show || value == null)
     return (
       <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:block">
         —
@@ -231,28 +243,28 @@ function ReturnCell({ value }: { value: number }) {
       ) : value < 0 ? (
         <TrendingDown className="h-3 w-3" />
       ) : null}
-      {fmtPct(value)}
+      {fmtPct(value, tier)}
     </span>
   );
 }
 
-function WinRateCell({ rate }: { rate: number }) {
+function WinRateCell({ rate, show = true, tier }: { rate: number; show?: boolean; tier?: BacktestTier }) {
   return (
     <div className="hidden sm:flex items-center gap-1.5">
       <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
         <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${rate}%` }}
+          className={cn("h-full rounded-full transition-all", show ? "bg-primary" : "bg-border")}
+          style={{ width: show ? `${rate}%` : "100%" }}
         />
       </div>
       <span className="text-[10px] sm:text-[11px] font-medium tabular-nums w-9 text-right">
-        {rate}%
+        {show ? `${tier === "reference" ? "~" : ""}${rate}%` : "—"}
       </span>
     </div>
   );
 }
 
-function fmtPct(v: number): string {
+function fmtPct(v: number, tier?: BacktestTier): string {
   if (v == null || isNaN(v)) return "—";
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+  return `${tier === "reference" ? "~" : ""}${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 }

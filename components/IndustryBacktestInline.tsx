@@ -1,5 +1,6 @@
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, BarChart3, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBacktestTier, tierProgress, TIER_LABELS } from "@/lib/backtest";
 
 interface BacktestIndustryRow {
   industry: string;
@@ -43,11 +44,41 @@ export default function IndustryBacktestInline({
 
   if (!match) return null;
 
+  // P2.3 可信度分层：样本不足时只展示行业名 + 进度，不展示数字（R4：只改展示不改数据）
+  const tier = getBacktestTier(match.samples);
+  if (tier === 'accumulating') {
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50",
+          onViewDetail && "cursor-pointer hover:text-foreground transition-colors",
+          className
+        )}
+        onClick={() => onViewDetail?.(match!.industry)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onViewDetail?.(match!.industry);
+          }
+        }}
+        role={onViewDetail ? "button" : undefined}
+        tabIndex={onViewDetail ? 0 : undefined}
+        title={`${match.industry} · 近90天回测 · ${tierProgress(match.samples)}`}
+      >
+        <Loader2 className="h-3 w-3 shrink-0 animate-pulse" />
+        <span className="font-medium">{match.industry}</span>
+        <span>·</span>
+        <span className="text-muted-foreground/80">{tierProgress(match.samples)} · 数据积累中</span>
+      </div>
+    );
+  }
+
   // day_3_return 可能为 NULL（该行业窗口内后续行情不足 3 天，AVG 结果为 NULL）
   const d3 = match.avg_d3;
   const hasD3 = d3 != null && !Number.isNaN(d3);
   const isPositive = hasD3 && d3 > 0;
   const isNegative = hasD3 && d3 < 0;
+  const isReference = tier === 'reference'; // 仅供参考：数字加 ~ 前缀浅提示
 
   return (
     <div
@@ -65,12 +96,18 @@ export default function IndustryBacktestInline({
       }}
       role={onViewDetail ? "button" : undefined}
       tabIndex={onViewDetail ? 0 : undefined}
-      title={`${match.industry} · 近90天回测 · ${match.samples} 个样本`}
+      title={`${match.industry} · 近90天回测 · ${match.samples} 个样本${isReference ? ` · ${TIER_LABELS.reference}` : ""}`}
     >
       <BarChart3 className="h-3 w-3 shrink-0" />
       <span className="font-medium">{match.industry}</span>
+      {isReference && (
+        <>
+          <span>·</span>
+          <span className="text-muted-foreground/80">{TIER_LABELS.reference}</span>
+        </>
+      )}
       <span>·</span>
-      <span>胜率 {match.win_rate}%</span>
+      <span>胜率 {isReference ? "~" : ""}{match.win_rate}%</span>
       <span>·</span>
       {/* A股惯例：红涨绿跌 */}
       <span className="inline-flex items-center gap-0.5">
@@ -89,7 +126,7 @@ export default function IndustryBacktestInline({
             isNegative && "text-emerald-600 dark:text-emerald-400"
           )}
         >
-          {hasD3 ? `${d3 > 0 ? "+" : ""}${d3.toFixed(2)}%` : "—"}
+          {hasD3 ? `${isReference ? "~" : ""}${d3 > 0 ? "+" : ""}${d3.toFixed(2)}%` : "—"}
         </span>
       </span>
     </div>
