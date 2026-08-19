@@ -16,6 +16,8 @@ interface ChatItem {
   toolLog?: { name: string; args: Record<string, unknown>; ok: boolean; summary: string }[];
 }
 
+const SESSION_STORAGE_KEY = "agent-session-id";
+
 export default function AgentPage() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatItem[]>([]);
@@ -32,6 +34,25 @@ export default function AgentPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // 刷新后恢复上次会话：服务端保留完整上下文，续聊不另起孤儿会话
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved && /^\d+$/.test(saved)) setSessionId(Number(saved));
+    } catch {
+      // localStorage 不可用（隐私模式等）时静默降级
+    }
+  }, []);
+
+  const persistSession = useCallback((id: number | null) => {
+    try {
+      if (id == null) localStorage.removeItem(SESSION_STORAGE_KEY);
+      else localStorage.setItem(SESSION_STORAGE_KEY, String(id));
+    } catch {
+      // 静默降级
+    }
+  }, []);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -53,7 +74,10 @@ export default function AgentPage() {
       const data = await res.json();
       if (!res.ok) {
         // 服务端错误会携带已创建的 sessionId：保留它，失败重试续用同一会话而非创建孤儿会话
-        if (data.sessionId) setSessionId(data.sessionId);
+        if (data.sessionId) {
+          setSessionId(data.sessionId);
+          persistSession(data.sessionId);
+        }
         if (res.status === 503) {
           setError("研究助手未配置：请设置 LLM_API_KEY 环境变量（或 DEEPSEEK_API_KEY）。");
         } else {
@@ -65,6 +89,7 @@ export default function AgentPage() {
       }
 
       setSessionId(data.sessionId);
+      persistSession(data.sessionId);
       setMessages((prev) => [
         ...prev,
         ...(data.toolLog || []).map((t, i) => ({
@@ -92,10 +117,11 @@ export default function AgentPage() {
 
   const newSession = useCallback(() => {
     setSessionId(null);
+    persistSession(null);
     setMessages([]);
     setError(null);
     inputRef.current?.focus();
-  }, []);
+  }, [persistSession]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -126,7 +152,7 @@ export default function AgentPage() {
             <button
               type="button"
               onClick={newSession}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <RotateCcw className="h-3.5 w-3.5" /> 新会话
             </button>
@@ -165,7 +191,7 @@ export default function AgentPage() {
                 if (m.toolCall) {
                   return (
                     <div key={m.id} className="flex justify-start">
-                      <div className="max-w-[85%] inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                      <div className="max-w-[85%] inline-flex items-center gap-1.5 rounded-lg border bg-accent/60 px-3 py-1.5 text-xs text-muted-foreground">
                         <Wrench className="h-3 w-3" />
                         调用工具 {m.toolCall.name}
                       </div>
@@ -179,7 +205,7 @@ export default function AgentPage() {
                       className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
                         isUser
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
+                          : "bg-accent/70 text-foreground"
                       }`}
                     >
                       {m.content}
@@ -201,7 +227,7 @@ export default function AgentPage() {
 
               {loading && (
                 <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-xl bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
+                  <div className="inline-flex items-center gap-2 rounded-xl bg-accent/70 px-3.5 py-2.5 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在研究…
                   </div>

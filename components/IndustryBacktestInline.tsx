@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BacktestIndustryRow {
@@ -65,24 +65,26 @@ export default function IndustryBacktestInline({
       tabIndex={onViewDetail ? 0 : undefined}
       title={`${match.industry} · 近90天回测 · ${match.samples} 个样本`}
     >
-      <span className="font-medium">📊 {match.industry}</span>
+      <BarChart3 className="h-3 w-3 shrink-0" />
+      <span className="font-medium">{match.industry}</span>
       <span>·</span>
       <span>胜率 {match.win_rate}%</span>
       <span>·</span>
+      {/* A股惯例：红涨绿跌 */}
       <span className="inline-flex items-center gap-0.5">
         T+3
         {isPositive ? (
-          <TrendingUp className="h-3 w-3 text-emerald-500" />
+          <TrendingUp className="h-3 w-3 text-red-500" />
         ) : isNegative ? (
-          <TrendingDown className="h-3 w-3 text-red-500" />
+          <TrendingDown className="h-3 w-3 text-emerald-500" />
         ) : (
           <Minus className="h-3 w-3" />
         )}
         <span
           className={cn(
             "font-medium",
-            isPositive && "text-emerald-600 dark:text-emerald-400",
-            isNegative && "text-red-600 dark:text-red-400"
+            isPositive && "text-red-600 dark:text-red-400",
+            isNegative && "text-emerald-600 dark:text-emerald-400"
           )}
         >
           {d3 > 0 ? "+" : ""}{d3.toFixed(2)}%

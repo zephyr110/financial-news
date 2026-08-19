@@ -290,11 +290,12 @@ export default function SignalDetail({
 function ReturnSpan({ value }: { value: number | null }) {
   if (value == null || Number.isNaN(value))
     return <span className="text-muted-foreground">—</span>;
+  // A股惯例：红涨绿跌
   const cls =
     value > 0
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-red-600 dark:text-red-400"
       : value < 0
-        ? "text-red-600 dark:text-red-400"
+        ? "text-emerald-600 dark:text-emerald-400"
         : "text-muted-foreground";
   return (
     <span className={cls}>
