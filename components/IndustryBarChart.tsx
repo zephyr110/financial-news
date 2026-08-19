@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { track } from "@/lib/track";
 
 const TOOLTIP_STYLE = {
   contentStyle: {
@@ -42,6 +43,7 @@ export default function IndustryBarChart({ data, onIndustryClick }: IndustryBarC
 
   const handleClick = (entry: any) => {
     if (entry?.fullName && onIndustryClick) {
+      track('industry_drill', { industry: entry.fullName });
       onIndustryClick(entry.fullName);
     }
   };

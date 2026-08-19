@@ -3,6 +3,8 @@ import { TrendingUp, AlertCircle, Zap, ExternalLink } from "lucide-react";
 import SignalBadge from "./SignalBadge";
 import IndustryBacktestInline from "./IndustryBacktestInline";
 import RelatedSignals from "./RelatedSignals";
+import WatchlistButton from "./WatchlistButton";
+import { getBacktestTier, shouldShowNumbers, TIER_LABELS } from "@/lib/backtest";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
@@ -38,6 +40,7 @@ const IMPACT_LABELS: Record<string, string> = {
 };
 
 interface SignalDetailSignal {
+  id: number;
   signal_score: number;
   category: string;
   impact_level: string;
@@ -115,9 +118,12 @@ export default function SignalDetail({
         <div className="flex items-start gap-3 mb-3">
           <SignalBadge score={signal.signal_score} size="lg" />
           <div className="min-w-0 flex-1">
-            <h1 className="text-base sm:text-lg font-semibold text-foreground leading-snug">
-              {signal.summary}
-            </h1>
+            <div className="flex items-start justify-between gap-2">
+              <h1 className="text-base sm:text-lg font-semibold text-foreground leading-snug">
+                {signal.summary}
+              </h1>
+              <WatchlistButton type="signal" id={signal.id} compact className="shrink-0 mt-0.5" />
+            </div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
                 className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[signal.category] || "bg-gray-100 text-gray-700"}`}
@@ -208,36 +214,51 @@ export default function SignalDetail({
                 </tr>
               </thead>
               <tbody>
-                {backtest.map((row: any) => (
-                  <tr key={row.industry} className="border-b last:border-0 hover:bg-accent/20 transition-colors">
-                    <td className="py-2 pr-4 font-medium text-foreground">
-                      {row.industry}
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">
-                      {row.samples}
-                      {row.samples < 20 && (
-                        <span
-                          className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 align-middle"
-                          title="样本较少，结论谨慎参考"
-                        >
-                          样本少
+                {backtest.map((row: any) => {
+                  // P2.3 可信度分层：样本不足只显示行业名 + 进度（不展示数字，R4 只改展示不改数据）
+                  const tier = getBacktestTier(row.samples);
+                  const showNumbers = shouldShowNumbers(tier);
+                  return (
+                    <tr key={row.industry} className="border-b last:border-0 hover:bg-accent/20 transition-colors">
+                      <td className="py-2 pr-4 font-medium text-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          {row.industry}
+                          <span
+                            className={
+                              tier === "sufficient"
+                                ? "text-[9px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                                : tier === "reference"
+                                  ? "text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                                  : "text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground"
+                            }
+                          >
+                            {TIER_LABELS[tier]}
+                          </span>
                         </span>
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">
-                      <ReturnSpan value={row.avg_d1} />
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">
-                      <ReturnSpan value={row.avg_d3} />
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">
-                      <ReturnSpan value={row.avg_d7} />
-                    </td>
-                    <td className="py-2 pl-2 text-right tabular-nums font-medium">
-                      {row.win_rate}%
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-2 px-2 text-right tabular-nums">
+                        {row.samples}
+                        {!showNumbers && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            /10
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-right tabular-nums">
+                        {showNumbers ? <ReturnSpan value={row.avg_d1} /> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="py-2 px-2 text-right tabular-nums">
+                        {showNumbers ? <ReturnSpan value={row.avg_d3} /> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="py-2 px-2 text-right tabular-nums">
+                        {showNumbers ? <ReturnSpan value={row.avg_d7} /> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="py-2 pl-2 text-right tabular-nums font-medium">
+                        {showNumbers ? `${tier === "reference" ? "~" : ""}${row.win_rate}%` : <span className="text-muted-foreground font-normal">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

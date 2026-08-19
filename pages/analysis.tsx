@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import AnalysisOverview from "../components/AnalysisOverview";
 import ScoreFilter from "../components/ScoreFilter";
 import IndustryBarChart from "../components/IndustryBarChart";
@@ -18,6 +19,7 @@ import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import SearchBar from "../components/SearchBar";
 import SignalSearchResults from "../components/SignalSearchResults";
+import WatchlistPanel from "../components/WatchlistPanel";
 import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db";
 import { useWatchedIndustries } from "../lib/useWatchedIndustries";
 import { safeParse } from "../lib/utils";
@@ -235,6 +237,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           <ErrorBanner message={error} />
 
+          <WatchlistPanel items={items} threads={threads} />
+
           <SearchBar
             onSearch={handleSearch}
             onClear={handleClearSearch}
@@ -392,6 +396,19 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               />
             </>
           )}
+
+          {/* 页脚：免责声明 + P2.5 验证报告入口（内部工具） */}
+          <div className="mt-10 pt-6 border-t border-border flex items-center justify-between flex-wrap gap-2">
+            <p className="text-[10px] text-muted-foreground">
+              分析仅作为信息准备，不构成投资建议
+            </p>
+            <Link
+              href="/analytics/value"
+              className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+            >
+              价值验证报告
+            </Link>
+          </div>
         </div>
       </div>
     </>

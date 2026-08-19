@@ -2,14 +2,18 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Zap, AlertCircle, CalendarDays } from "lucide-react";
+import { ArrowLeft, Loader2, Zap, AlertCircle, CalendarDays, History, Flame, TrendingUp, ExternalLink } from "lucide-react";
 import SiteHeader from "../../components/SiteHeader";
 import SignalBadge from "../../components/SignalBadge";
 import ErrorBanner from "../../components/ErrorBanner";
+import WatchlistButton from "../../components/WatchlistButton";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, CATEGORY_COLORS, SCORE_LABELS } from "@/lib/constants";
 import { getEventThreads, getEventThreadById } from "../../lib/db";
+import { getThreadMarketContext } from "../../lib/market";
+import { getBacktestTier, shouldShowNumbers, TIER_LABELS } from "@/lib/backtest";
 import { formatDate, formatTime } from "../../lib/format";
+import { track } from "@/lib/track";
 
 const STAGE_LABELS = {
   early: "早期",
@@ -64,6 +68,12 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
     return () => { cancelled = true; };
   }, [id, router.isReady, ssgData]);
 
+  // P2.1 埋点：进入线索详情即记 thread_expand（SSG 首屏与客户端兜底都覆盖）
+  useEffect(() => {
+    if (!id || !router.isReady) return;
+    track('thread_expand', { id: Number(id) });
+  }, [id, router.isReady]);
+
   if (loading) {
     return (
       <>
@@ -103,6 +113,9 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
   }
 
   const thread = data;
+  // P2.4 四段叙事：起因 = 最早信号；时间线 = 成员信号正序（DB 已按 published_at ASC）
+  const origin = thread?.signals?.[0] || null;
+  const signals = thread?.signals || [];
 
   return (
     <>
@@ -131,7 +144,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
 
           {thread ? (
             <>
-              {/* 线索头部 */}
+              {/* ── 段① 起因：线索头部 + 最早信号 + 原文 ── */}
               <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
                 <div className="flex items-center gap-2 flex-wrap mb-2">
                   {thread.confidence === "high" ? (
@@ -148,6 +161,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                   )}>
                     {STAGE_LABELS[thread.stage] || thread.stage}
                   </span>
+                  <WatchlistButton type="thread" id={thread.id} compact className="ml-auto shrink-0" />
                 </div>
 
                 <p className="text-[13px] sm:text-sm text-foreground leading-relaxed mb-3">
@@ -172,46 +186,70 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                     ))}
                   </div>
                 )}
+
+                {/* 起因：最早信号 + 原始快讯 + 原文链接 */}
+                {origin && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2">
+                      <Flame className="h-3 w-3 text-amber-500" />
+                      起因 · {formatDate(origin.published_at)} {formatTime(origin.published_at)}
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <SignalBadge score={origin.signal_score} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] sm:text-[13px] text-foreground leading-relaxed">
+                          {origin.summary}
+                        </p>
+                        {origin.content && (
+                          <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-3">
+                            {origin.content}
+                          </p>
+                        )}
+                        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                          {origin.docurl && (
+                            <a
+                              href={origin.docurl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] sm:text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"
+                            >
+                              阅读原文 <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                          {origin.source && (
+                            <span className="text-[10px] text-muted-foreground">{origin.source}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* 后续关注 */}
-              {thread.watch_points?.length > 0 && (
-                <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                    后续关注
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {thread.watch_points.map((p: string, i: number) => (
-                      <li
-                        key={i}
-                        className="text-[12px] sm:text-[13px] text-muted-foreground flex items-start gap-2"
-                      >
-                        <span className="text-primary mt-1">•</span>
-                        {p}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* 成员信号 */}
-              <div className="bg-card border rounded-xl p-4 sm:p-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                  成员信号（{thread.signals?.length || 0} 条）
+              {/* ── 段② 进展时间线 ── */}
+              <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                  <History className="h-4 w-4 text-primary" />
+                  进展时间线（{signals.length} 条）
                 </h3>
-                {!thread.signals || thread.signals.length === 0 ? (
+                {signals.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     暂无成员信号数据
                   </p>
                 ) : (
                   <div className="space-y-2.5">
-                    {thread.signals.map((s: any) => (
+                    {signals.map((s: any, i: number) => (
                       <Link
                         key={s.id}
                         href={`/signal/${s.id}`}
                         className="flex items-start gap-3 p-3 rounded-lg border bg-background hover:border-primary/50 hover:bg-accent/40 transition-colors"
                       >
-                        <SignalBadge score={s.signal_score} size="md" />
+                        <div className="flex flex-col items-center shrink-0">
+                          <SignalBadge score={s.signal_score} size="md" />
+                          {i === 0 && (
+                            <span className="text-[9px] text-amber-500 mt-1">起因</span>
+                          )}
+                        </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[13px] sm:text-sm text-foreground leading-relaxed">
                             {s.summary}
@@ -230,12 +268,146 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                               {formatDate(s.published_at)} {formatTime(s.published_at)}
                             </span>
                           </div>
+                          {s.content && (
+                            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-2">
+                              {s.content}
+                            </p>
+                          )}
                         </div>
                       </Link>
                     ))}
                   </div>
                 )}
               </div>
+
+              {/* ── 段③ 市场反应：今日板块涨跌 + 行业回测 ── */}
+              <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
+                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  市场反应
+                </h3>
+                {thread.market?.length > 0 || thread.backtest?.length > 0 ? (
+                  <>
+                    {thread.market?.length > 0 && (
+                      <div className="mb-3">
+                        <span className="text-[10px] text-muted-foreground block mb-1.5">
+                          今日板块涨跌
+                        </span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {thread.market.map((m: any) => {
+                            const pct = Number(m.change_pct);
+                            return (
+                              <span key={m.name} className="text-[11px] sm:text-xs flex items-center gap-1">
+                                <span className="text-muted-foreground">{m.name}</span>
+                                {/* A股惯例：红涨绿跌 */}
+                                <span
+                                  className={
+                                    pct >= 0
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                  }
+                                >
+                                  {pct >= 0 ? "+" : ""}
+                                  {pct.toFixed(2)}%
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {thread.backtest?.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px] sm:text-xs">
+                          <thead>
+                            <tr className="text-muted-foreground border-b">
+                              <th className="text-left py-2 pr-4 font-medium">行业回测</th>
+                              <th className="text-right py-2 px-2 font-medium">样本</th>
+                              <th className="text-right py-2 px-2 font-medium">T+1</th>
+                              <th className="text-right py-2 px-2 font-medium">T+3</th>
+                              <th className="text-right py-2 px-2 font-medium">T+7</th>
+                              <th className="text-right py-2 pl-2 font-medium">胜率</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {thread.backtest.map((row: any) => {
+                              // P2.3 可信度分层：样本不足只显示行业名 + 进度
+                              const tier = getBacktestTier(row.samples);
+                              const showNumbers = shouldShowNumbers(tier);
+                              return (
+                                <tr key={row.industry} className="border-b last:border-0">
+                                  <td className="py-2 pr-4 font-medium text-foreground">
+                                    <span className="inline-flex items-center gap-1.5">
+                                      {row.industry}
+                                      <span className={cn(
+                                        "text-[9px] px-1 py-0.5 rounded",
+                                        tier === "sufficient"
+                                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                                          : tier === "reference"
+                                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                                            : "bg-muted text-muted-foreground"
+                                      )}>
+                                        {TIER_LABELS[tier]}
+                                      </span>
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-2 text-right tabular-nums">
+                                    {row.samples}
+                                    {!showNumbers && (
+                                      <span className="ml-1 text-[10px] text-muted-foreground">/10</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-2 text-right tabular-nums">
+                                    {showNumbers ? <ReturnSpan value={row.avg_d1} tier={tier} /> : <Dash />}
+                                  </td>
+                                  <td className="py-2 px-2 text-right tabular-nums">
+                                    {showNumbers ? <ReturnSpan value={row.avg_d3} tier={tier} /> : <Dash />}
+                                  </td>
+                                  <td className="py-2 px-2 text-right tabular-nums">
+                                    {showNumbers ? <ReturnSpan value={row.avg_d7} tier={tier} /> : <Dash />}
+                                  </td>
+                                  <td className="py-2 pl-2 text-right tabular-nums font-medium">
+                                    {showNumbers
+                                      ? `${tier === "reference" ? "~" : ""}${row.win_rate}%`
+                                      : <Dash />}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        <p className="text-[10px] text-muted-foreground mt-2">
+                          信号出现后行业指数平均涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    暂无相关行情数据
+                  </p>
+                )}
+              </div>
+
+              {/* ── 段④ 后续关注 ── */}
+              {thread.watch_points?.length > 0 && (
+                <div className="bg-card border rounded-xl p-4 sm:p-6">
+                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                    后续关注
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {thread.watch_points.map((p: string, i: number) => (
+                      <li
+                        key={i}
+                        className="text-[12px] sm:text-[13px] text-muted-foreground flex items-start gap-2"
+                      >
+                        <span className="text-primary mt-1">•</span>
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-20 text-sm text-muted-foreground">
@@ -245,6 +417,30 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
         </div>
       </div>
     </>
+  );
+}
+
+function Dash() {
+  return <span className="text-muted-foreground">—</span>;
+}
+
+function ReturnSpan({ value, tier }: { value: number | null; tier: string }) {
+  if (value == null || Number.isNaN(Number(value)))
+    return <span className="text-muted-foreground">—</span>;
+  const n = Number(value);
+  // A股惯例：红涨绿跌
+  const cls =
+    n > 0
+      ? "text-red-600 dark:text-red-400"
+      : n < 0
+        ? "text-emerald-600 dark:text-emerald-400"
+        : "text-muted-foreground";
+  return (
+    <span className={cls}>
+      {tier === "reference" ? "~" : ""}
+      {n > 0 ? "+" : ""}
+      {n.toFixed(2)}%
+    </span>
   );
 }
 
@@ -278,9 +474,12 @@ export async function getStaticProps({ params }: { params: { id: string } }) {
       return { notFound: true };
     }
 
+    // P2.4：SSG 时并行预取市场上下文，ISR 首屏即有「市场反应」段
+    const context = await getThreadMarketContext(thread.industries);
+
     return {
       props: {
-        data: thread,
+        data: { ...thread, market: context.market, backtest: context.backtest },
         error: null,
       },
       revalidate: 3600,

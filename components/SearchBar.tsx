@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/track";
 
 const SCORE_OPTIONS = [
   { value: 1, label: "全部" },
@@ -49,6 +50,7 @@ export default function SearchBar({
   const triggerSearch = useCallback(
     (q: string, score: number, hours: number) => {
       if (q.trim().length < 2) return;
+      track('search_query', { query: q.trim().slice(0, 100), minScore: score, hoursBack: hours });
       onSearch({ query: q.trim(), minScore: score, hoursBack: hours });
     },
     [onSearch],

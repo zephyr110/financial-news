@@ -1,5 +1,5 @@
 import { getCostEstimate } from '../../../lib/analyze';
-import { getDbCounts } from '../../../lib/db';
+import { getDbCounts, getEventAnalytics } from '../../../lib/db';
 import { assertCronAuth } from '../../../lib/cronAuth';
 
 /**
@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   try {
     const dbStats = await getDbCounts();
     const usage = getCostEstimate();
+    const analytics = await getEventAnalytics(7);
 
     res.status(200).json({
       database: dbStats,
@@ -23,6 +24,7 @@ export default async function handler(req, res) {
         errors: usage.errors,
         estimated_cost_rmb: usage.estimated_cost_rmb,
       },
+      analytics, // P2.1 埋点按日聚合（7 天）
     });
   } catch (error) {
     console.error('[cron/stats] Error:', error);

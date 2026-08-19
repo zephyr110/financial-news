@@ -719,7 +719,7 @@ export async function getEventThreadById(id: number) {
     const sigResult = await db.execute({
       sql: `
         SELECT a.id, a.signal_score, a.category, a.summary, n.published_at,
-               substr(n.content, 1, 200) as content
+               substr(n.content, 1, 200) as content, n.docurl, n.source
         FROM analysis_result a
         JOIN news_archive n ON n.id = a.news_id
         WHERE a.id IN (${placeholders})
@@ -734,6 +734,8 @@ export async function getEventThreadById(id: number) {
       summary: r.summary,
       published_at: r.published_at,
       content: (r.content as string || ''), // SQL 已 substr 截断
+      docurl: (r.docurl as string) || null, // P2.4 起因段原文链接
+      source: (r.source as string) || null,
     }));
   }
 
@@ -1269,4 +1271,96 @@ export async function getEventLog(eventType?: string, limit = 100) {
     payload: parseJsonOrNull(r.payload as string), // 对象 payload 不被丢成 []
     created_at: r.created_at,
   }));
+}
+
+/**
+ * P2.1 埋点按日聚合：每天每类事件计数 + 独立 session 数。
+ * 供 /api/cron/stats 与 P2.5 验证报告使用（json_extract 依赖 SQLite JSON1，libsql 内置）。
+ */
+export async function getEventAnalytics(days = 7) {
+  const db = await getDb();
+  const safeDays = Number.isFinite(days) ? Math.min(Math.max(days, 1), 90) : 7;
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `SELECT date(created_at) as day, event_type,
+                 COUNT(*) as count,
+                 COUNT(DISTINCT json_extract(payload, '$.session')) as sessions
+          FROM event_log
+          WHERE created_at >= ?
+          GROUP BY day, event_type
+          ORDER BY day DESC, event_type`,
+    args: [since],
+  });
+  return result.rows.map((r: Record<string, unknown>) => ({
+    day: r.day,
+    event_type: r.event_type,
+    count: Number(r.count || 0),
+    sessions: Number(r.sessions || 0),
+  }));
+}
+
+/**
+ * P2.5 价值指标聚合：事件类型汇总 + 独立访问 + 周回访。
+ * - uniqueSessions：观察窗口内去重 session 数（30 天 TTL，近似独立用户）
+ * - events：每类事件 count + 去重 session 数
+ * - weeklyReturn：recentSessions（最近 7 天去重 session）中有多少也在
+ *   前一个 7 天窗口出现过（跨周回访，即周回访率的分子/分母）
+ */
+export async function getEventMetrics(days = 7) {
+  const db = await getDb();
+  const safeDays = Number.isFinite(days) ? Math.min(Math.max(days, 1), 90) : 7;
+  const now = Date.now();
+  const since = new Date(now - safeDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const [typeRows, sessionRows, weeklyRows] = await Promise.all([
+    db.execute({
+      sql: `SELECT event_type, COUNT(*) as count,
+                   COUNT(DISTINCT json_extract(payload, '$.session')) as sessions
+            FROM event_log
+            WHERE created_at >= ?
+            GROUP BY event_type`,
+      args: [since],
+    }),
+    db.execute({
+      sql: `SELECT COUNT(DISTINCT json_extract(payload, '$.session')) as total
+            FROM event_log
+            WHERE created_at >= ?`,
+      args: [since],
+    }),
+    // 周回访：最近 7 天去重 session ∩ 前 7 天窗口去重 session
+    db.execute({
+      sql: `SELECT COUNT(*) as recent_sessions,
+                   SUM(CASE WHEN older.session IS NOT NULL THEN 1 ELSE 0 END) as returning
+            FROM (
+              SELECT DISTINCT json_extract(payload, '$.session') as session
+              FROM event_log
+              WHERE created_at >= ? AND created_at < ?
+            ) recent
+            LEFT JOIN (
+              SELECT DISTINCT json_extract(payload, '$.session') as session
+              FROM event_log
+              WHERE created_at >= ? AND created_at < ?
+            ) older ON recent.session = older.session`,
+      args: [
+        new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        new Date(now).toISOString(),
+        new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      ],
+    }),
+  ]);
+
+  const weeklyRow = weeklyRows.rows[0] as Record<string, unknown> | undefined;
+  return {
+    uniqueSessions: Number(sessionRows.rows[0]?.total || 0),
+    events: typeRows.rows.map((r: Record<string, unknown>) => ({
+      event_type: r.event_type as string,
+      count: Number(r.count || 0),
+      sessions: Number(r.sessions || 0),
+    })),
+    weeklyReturn: {
+      recentSessions: Number(weeklyRow?.recent_sessions || 0),
+      returning: Number(weeklyRow?.returning || 0),
+    },
+  };
 }
