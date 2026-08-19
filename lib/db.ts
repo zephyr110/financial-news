@@ -155,6 +155,13 @@ async function initSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_pipeline_job_time ON pipeline_run(job_name, started_at);
 
+    -- 批处理游标（P1.3）：记录各 job 已处理到的最大 news_id，支持增量续跑
+    CREATE TABLE IF NOT EXISTS pipeline_cursor (
+      job_name     TEXT PRIMARY KEY,  -- analyze | deep-analyze
+      last_news_id INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL
+    );
+
     -- 研究 Agent 会话（spec §10.3 阶段 B，Session Note 式持久记忆）
     CREATE TABLE IF NOT EXISTS agent_session (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -241,19 +248,65 @@ export async function insertNewsBatch(items) {
   return inserted;
 }
 
+// --- 批处理游标（P1.3） ---
+
+/** 读取游标：该 job 已处理到的最大 news_id（无记录返回 0）。 */
+export async function getPipelineCursor(jobName) {
+  const db = await getDb();
+  const r = await db.execute({
+    sql: 'SELECT last_news_id FROM pipeline_cursor WHERE job_name = ?',
+    args: [jobName],
+  });
+  return Number(r.rows[0]?.last_news_id || 0);
+}
+
+/** 推进游标（单调递增；ON CONFLICT 幂等）。 */
+export async function setPipelineCursor(jobName, lastNewsId) {
+  const db = await getDb();
+  await db.execute({
+    sql: `INSERT INTO pipeline_cursor (job_name, last_news_id, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(job_name) DO UPDATE SET
+            last_news_id = excluded.last_news_id,
+            updated_at = excluded.updated_at`,
+    args: [jobName, lastNewsId, new Date().toISOString()],
+  });
+}
+
+/**
+ * 游标自愈：游标之前的未处理条目（分析失败/跳过残留）超过阈值时
+ * 重置游标回 0 重试（已分析条目幂等跳过，仅失败条目消耗 LLM）。
+ */
+export async function resetStuckCursor(jobName, cursor, threshold = 20) {
+  if (cursor <= 0) return cursor;
+  const db = await getDb();
+  const r = await db.execute({
+    sql: `SELECT COUNT(*) as n
+          FROM news_archive n
+          LEFT JOIN analysis_result a ON a.news_id = n.id
+          WHERE a.id IS NULL AND n.id <= ?`,
+    args: [cursor],
+  });
+  if (Number(r.rows[0]?.n || 0) > threshold) {
+    console.warn(`[cursor] ${jobName}: ${r.rows[0].n} items stuck before cursor ${cursor}, resetting to 0`);
+    await setPipelineCursor(jobName, 0);
+    return 0;
+  }
+  return cursor;
+}
+
 /** Get analyzed news (signal ≥ 3) without deep analysis for Step 2 processing. */
-export async function getNeedsDeepAnalysis(limit = 30) {
+export async function getNeedsDeepAnalysis(limit = 30, afterId = 0) {
   const db = await getDb();
   const result = await db.execute({
     sql: `
       SELECT n.*, a.signal_score, a.category, a.industries, a.companies, a.summary
       FROM news_archive n
       JOIN analysis_result a ON a.news_id = n.id
-      WHERE a.signal_score >= 3 AND a.deep_analysis IS NULL
-      ORDER BY n.published_at DESC
+      WHERE a.signal_score >= 3 AND a.deep_analysis IS NULL AND n.id > ?
+      ORDER BY n.id ASC
       LIMIT ?
     `,
-    args: [limit],
+    args: [afterId, limit],
   });
   return result.rows;
 }
@@ -292,19 +345,19 @@ export async function updateDeepAnalysis(newsId, { industries, companies, tags, 
   });
 }
 
-/** Get news items that haven't been analyzed yet, newest first.
- * 新新闻优先分析（对用户价值最高）；旧积压不会永久阻塞新内容。 */
-export async function getUnanalyzedNews(limit = 50) {
+/** Get news items that haven't been analyzed yet, ascending by id (FIFO).
+ * 与游标（afterId）配合：积压先处理旧的，游标单调推进；幂等保证重跑安全。 */
+export async function getUnanalyzedNews(limit = 50, afterId = 0) {
   const db = await getDb();
   const result = await db.execute({
     sql: `
       SELECT n.* FROM news_archive n
       LEFT JOIN analysis_result a ON a.news_id = n.id
-      WHERE a.id IS NULL
-      ORDER BY n.published_at DESC
+      WHERE a.id IS NULL AND n.id > ?
+      ORDER BY n.id ASC
       LIMIT ?
     `,
-    args: [limit],
+    args: [afterId, limit],
   });
   return result.rows;
 }

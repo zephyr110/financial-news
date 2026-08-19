@@ -10,6 +10,10 @@ import {
   insertNewsBatch,
   insertAnalysis,
   saveEventThreads,
+  getPipelineCursor,
+  setPipelineCursor,
+  resetStuckCursor,
+  getUnanalyzedNews,
 } from '../lib/db';
 import { runBacktest } from '../lib/market';
 import { startPipelineRun, finishPipelineRun, withPipelineRun, getPipelineHealth } from '../lib/pipeline';
@@ -135,6 +139,52 @@ describe('backtest 幂等（UNIQUE(signal_date, industry) + INSERT OR REPLACE）
     const row = await db.execute("SELECT industry, day_1_return FROM backtest_result WHERE industry = '半导体'");
     expect(row.rows.length).toBe(1);
     expect(row.rows[0].day_1_return).not.toBeNull();
+  });
+});
+
+describe('批处理游标（P1.3）', () => {
+  it('set/getPipelineCursor 单调推进', async () => {
+    await setPipelineCursor('analyze', 42);
+    expect(await getPipelineCursor('analyze')).toBe(42);
+    await setPipelineCursor('analyze', 43);
+    expect(await getPipelineCursor('analyze')).toBe(43);
+  });
+
+  it('getUnanalyzedNews 游标过滤 + FIFO（id 升序）', async () => {
+    const db = await getDb();
+    for (let i = 0; i < 4; i++) {
+      await db.execute({
+        sql: 'INSERT OR IGNORE INTO news_archive (id, source, source_id, title, content, published_at) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [9200 + i, 'test', `cur-${i}`, `t${i}`, `c${i}`, new Date().toISOString()],
+      });
+    }
+    const rows = await getUnanalyzedNews(10, 9201);
+    expect(rows.length).toBe(2);
+    expect(Number(rows[0].id)).toBe(9202);
+    expect(Number(rows[1].id)).toBe(9203);
+  });
+
+  it('resetStuckCursor：游标前残留超阈值则重置为 0', async () => {
+    const db = await getDb();
+    // 21 条未分析新闻全部位于游标之前（id 9500-9520）
+    for (let i = 0; i < 21; i++) {
+      await db.execute({
+        sql: 'INSERT OR IGNORE INTO news_archive (id, source, source_id, title, content, published_at) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [9500 + i, 'test', `stuck-${i}`, `t${i}`, `c${i}`, new Date().toISOString()],
+      });
+    }
+    await setPipelineCursor('deep-analyze', 9520);
+    const c = await resetStuckCursor('deep-analyze', 9520);
+    expect(c).toBe(0);
+    expect(await getPipelineCursor('deep-analyze')).toBe(0);
+  });
+
+  it('resetStuckCursor：残留未超阈值不重置游标', async () => {
+    await setPipelineCursor('analyze', 0);
+    // 残留仅 6 条（≤ 阈值 20）→ 返回原游标且不写库（游标保持 0）
+    const c = await resetStuckCursor('analyze', 9300);
+    expect(c).toBe(9300);
+    expect(await getPipelineCursor('analyze')).toBe(0);
   });
 });
 
