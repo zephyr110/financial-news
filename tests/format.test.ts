@@ -43,6 +43,10 @@ describe('formatTime', () => {
     expect(formatTime(null)).toBe('--:--')
   })
 
+  it('formats SQLite datetime string directly (thread.created_at)', () => {
+    expect(formatTime('2026-07-26 10:30:00')).toBe('10:30')
+  })
+
   it('returns --:-- for invalid date', () => {
     expect(formatTime(new Date('invalid'))).toBe('--:--')
   })
@@ -56,6 +60,10 @@ describe('formatDate', () => {
 
   it('returns empty for null', () => {
     expect(formatDate(null)).toBe('')
+  })
+
+  it('formats SQLite datetime string directly (thread.created_at)', () => {
+    expect(formatDate('2026-07-26 10:30:00')).toBe('07/26')
   })
 })
 
