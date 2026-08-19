@@ -244,7 +244,8 @@ export async function updateDeepAnalysis(newsId, { industries, companies, tags, 
   });
 }
 
-/** Get news items that haven't been analyzed yet, ordered by publish time. */
+/** Get news items that haven't been analyzed yet, newest first.
+ * 新新闻优先分析（对用户价值最高）；旧积压不会永久阻塞新内容。 */
 export async function getUnanalyzedNews(limit = 50) {
   const db = await getDb();
   const result = await db.execute({
@@ -252,7 +253,7 @@ export async function getUnanalyzedNews(limit = 50) {
       SELECT n.* FROM news_archive n
       LEFT JOIN analysis_result a ON a.news_id = n.id
       WHERE a.id IS NULL
-      ORDER BY n.published_at ASC
+      ORDER BY n.published_at DESC
       LIMIT ?
     `,
     args: [limit],

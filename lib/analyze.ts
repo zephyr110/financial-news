@@ -101,9 +101,11 @@ function scoreToImpact(score) {
 
 // --- Main Analysis Function ---
 
-export async function analyzeUnanalyzedNews(batchSize = 15, maxBatches = 10) {
+// 默认批量调小：单轮在 Vercel Hobby 函数时限（60s）内稳定完成，
+// 消化不完的积压由 30 分钟调度频率持续消化，而非单轮长跑超时。
+export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
   if (!LLM_CONFIG.apiKey) {
-    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY / ANTHROPIC_AUTH_TOKEN) environment variable.');
+    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
   }
 
   const unanalyzed = await getUnanalyzedNews(batchSize * maxBatches);
@@ -237,7 +239,7 @@ function parseDeepAnalysisResponse(content, newsItems) {
   });
 }
 
-export async function deepAnalyzeSignals(batchSize = 10, maxBatches = 5) {
+export async function deepAnalyzeSignals(batchSize = 5, maxBatches = 2) {
   if (!LLM_CONFIG.apiKey) throw new Error('LLM_API_KEY not configured.');
 
   const pending = await getNeedsDeepAnalysis(batchSize * maxBatches);
