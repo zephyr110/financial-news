@@ -14,20 +14,13 @@ concurrency:
   group: cron-pipeline
   cancel-in-progress: false
 
+# P1.4 调度解耦：5 段相互独立（无 needs: 链）——
+# 一段失败/卡住不阻断其余 4 段；每段 endpoint 自带增量语义 + 唯一约束，幂等可安全重跑。
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Debug secret lengths
-        run: |
-          echo "APP_URL length: ${#APP_URL}"
-          echo "CRON_SECRET length: ${#CRON_SECRET}"
-          # Check for leading/trailing whitespace
-          echo "CRON_SECRET first 4 chars prefix: [${CRON_SECRET:0:4}]"
-          echo "CRON_SECRET last 4 chars suffix: [${CRON_SECRET: -4}]"
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
       - name: Trigger news fetch
         run: |
           curl -sS --fail-with-body -X GET "${{ secrets.APP_URL }}/api/cron/fetch" \
@@ -36,8 +29,8 @@ jobs:
           echo ""
 
   analyze:
-    needs: fetch
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger LLM analysis
         run: |
@@ -47,8 +40,8 @@ jobs:
           echo ""
 
   deep-analyze:
-    needs: analyze
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger deep entity mapping
         run: |
@@ -58,8 +51,8 @@ jobs:
           echo ""
 
   event-threads:
-    needs: deep-analyze
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger event thread detection
         run: |
@@ -69,8 +62,8 @@ jobs:
           echo ""
 
   fetch-market:
-    needs: event-threads
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Fetch market data + run backtest
         run: |
