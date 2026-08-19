@@ -3,6 +3,7 @@ import { TrendingUp, AlertCircle, Zap, ExternalLink } from "lucide-react";
 import SignalBadge from "./SignalBadge";
 import IndustryBacktestInline from "./IndustryBacktestInline";
 import RelatedSignals from "./RelatedSignals";
+import WatchlistButton from "./WatchlistButton";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
@@ -38,6 +39,7 @@ const IMPACT_LABELS: Record<string, string> = {
 };
 
 interface SignalDetailSignal {
+  id: number;
   signal_score: number;
   category: string;
   impact_level: string;
@@ -115,9 +117,12 @@ export default function SignalDetail({
         <div className="flex items-start gap-3 mb-3">
           <SignalBadge score={signal.signal_score} size="lg" />
           <div className="min-w-0 flex-1">
-            <h1 className="text-base sm:text-lg font-semibold text-foreground leading-snug">
-              {signal.summary}
-            </h1>
+            <div className="flex items-start justify-between gap-2">
+              <h1 className="text-base sm:text-lg font-semibold text-foreground leading-snug">
+                {signal.summary}
+              </h1>
+              <WatchlistButton type="signal" id={signal.id} compact className="shrink-0 mt-0.5" />
+            </div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
                 className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[signal.category] || "bg-gray-100 text-gray-700"}`}

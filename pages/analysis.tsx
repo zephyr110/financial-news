@@ -18,6 +18,7 @@ import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import SearchBar from "../components/SearchBar";
 import SignalSearchResults from "../components/SignalSearchResults";
+import WatchlistPanel from "../components/WatchlistPanel";
 import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db";
 import { useWatchedIndustries } from "../lib/useWatchedIndustries";
 import { safeParse } from "../lib/utils";
@@ -234,6 +235,8 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           </div>
 
           <ErrorBanner message={error} />
+
+          <WatchlistPanel items={items} threads={threads} />
 
           <SearchBar
             onSearch={handleSearch}
