@@ -59,7 +59,7 @@ export default function BacktestPanel() {
             信号有效性回测
           </h3>
           <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
-            信号出现后行业指数后续涨跌幅 · 近 90 天
+            信号出现后行业指数后续涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
           </p>
         </div>
         <ChevronDown
@@ -140,6 +140,14 @@ export default function BacktestPanel() {
                     >
                       <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">
                         {row.industry}
+                        {row.samples < 20 && (
+                          <span
+                            className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 align-middle"
+                            title="样本较少，结论谨慎参考"
+                          >
+                            样本少
+                          </span>
+                        )}
                       </span>
                       <ScoreBadge score={row.signal_score} />
                       <div className="sm:hidden text-[11px] text-muted-foreground">
