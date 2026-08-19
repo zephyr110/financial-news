@@ -63,10 +63,10 @@ interface SignalDetailSignal {
 interface BacktestRow {
   industry: string;
   samples: number;
-  avg_d1: number;
-  avg_d3: number;
-  avg_d7: number;
-  win_rate: number;
+  avg_d1: number | null;
+  avg_d3: number | null;
+  avg_d7: number | null;
+  win_rate: number | null;
 }
 
 interface RelatedSignal {
