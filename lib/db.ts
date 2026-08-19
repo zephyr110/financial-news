@@ -93,6 +93,7 @@ async function initSchema(db) {
       confidence    TEXT    NOT NULL,  -- high|medium
       industries    TEXT,              -- JSON: ["industry", ...]
       watch_points  TEXT,              -- JSON: ["point", ...]
+      dedup_key     TEXT,              -- 幂等键：规范化 title（P1.2）
       created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -139,6 +140,28 @@ async function initSchema(db) {
     DROP INDEX IF EXISTS idx_event_created;
     DROP INDEX IF EXISTS idx_event_entity;
 
+    -- 数据管线任务状态机（P1.1）：每次 cron 调用的生命周期
+    -- status: running → success | failed；batch_id 相同视为同一批次的重试（retry_count 递增）
+    CREATE TABLE IF NOT EXISTS pipeline_run (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_name        TEXT    NOT NULL,  -- fetch | analyze | deep-analyze | event-threads | fetch-market
+      batch_id        TEXT    NOT NULL,  -- 调用方批次标识（QStash 消息 ID 或小时时间窗）
+      retry_count     INTEGER NOT NULL DEFAULT 0,
+      status          TEXT    NOT NULL,  -- running | success | failed
+      items_processed INTEGER,
+      error           TEXT,
+      started_at      TEXT    NOT NULL,  -- ISO 格式（与 news_archive.published_at 一致）
+      finished_at     TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_job_time ON pipeline_run(job_name, started_at);
+
+    -- 批处理游标（P1.3）：记录各 job 已处理到的最大 news_id，支持增量续跑
+    CREATE TABLE IF NOT EXISTS pipeline_cursor (
+      job_name     TEXT PRIMARY KEY,  -- analyze | deep-analyze
+      last_news_id INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL
+    );
+
     -- 研究 Agent 会话（spec §10.3 阶段 B，Session Note 式持久记忆）
     CREATE TABLE IF NOT EXISTS agent_session (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +179,27 @@ async function initSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_msg_session ON agent_message(session_id, id);
   `);
+
+  // 迁移：event_threads 补充 dedup_key 幂等键（P1.2）。
+  // 必须在建表（上面 executeMultiple）之后执行；每步独立幂等，
+  // 单步失败不阻塞后续（列已存在/表不存在时静默跳过）。
+  try {
+    await db.execute('ALTER TABLE event_threads ADD COLUMN dedup_key TEXT');
+  } catch { /* column already exists */ }
+  // 合并历史重复：同规范化标题只保留最新一行（首次迁移时执行一次）
+  try {
+    await db.execute(`
+      DELETE FROM event_threads
+      WHERE id NOT IN (SELECT MAX(id) FROM event_threads GROUP BY lower(trim(title)))
+    `);
+  } catch { /* dedup_key 列尚未存在 */ }
+  // 回填幂等键（对历史行；新行由 saveEventThreads 写入）
+  try {
+    await db.execute(`UPDATE event_threads SET dedup_key = lower(trim(title)) WHERE dedup_key IS NULL`);
+  } catch { /* dedup_key 列尚未存在 */ }
+  try {
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_dedup ON event_threads(dedup_key)');
+  } catch { /* dedup_key 列尚未存在 */ }
 }
 
 function rowId(value) {
@@ -204,19 +248,65 @@ export async function insertNewsBatch(items) {
   return inserted;
 }
 
+// --- 批处理游标（P1.3） ---
+
+/** 读取游标：该 job 已处理到的最大 news_id（无记录返回 0）。 */
+export async function getPipelineCursor(jobName) {
+  const db = await getDb();
+  const r = await db.execute({
+    sql: 'SELECT last_news_id FROM pipeline_cursor WHERE job_name = ?',
+    args: [jobName],
+  });
+  return Number(r.rows[0]?.last_news_id || 0);
+}
+
+/** 推进游标（单调递增；ON CONFLICT 幂等）。 */
+export async function setPipelineCursor(jobName, lastNewsId) {
+  const db = await getDb();
+  await db.execute({
+    sql: `INSERT INTO pipeline_cursor (job_name, last_news_id, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(job_name) DO UPDATE SET
+            last_news_id = excluded.last_news_id,
+            updated_at = excluded.updated_at`,
+    args: [jobName, lastNewsId, new Date().toISOString()],
+  });
+}
+
+/**
+ * 游标自愈：游标之前的未处理条目（分析失败/跳过残留）超过阈值时
+ * 重置游标回 0 重试（已分析条目幂等跳过，仅失败条目消耗 LLM）。
+ */
+export async function resetStuckCursor(jobName, cursor, threshold = 20) {
+  if (cursor <= 0) return cursor;
+  const db = await getDb();
+  const r = await db.execute({
+    sql: `SELECT COUNT(*) as n
+          FROM news_archive n
+          LEFT JOIN analysis_result a ON a.news_id = n.id
+          WHERE a.id IS NULL AND n.id <= ?`,
+    args: [cursor],
+  });
+  if (Number(r.rows[0]?.n || 0) > threshold) {
+    console.warn(`[cursor] ${jobName}: ${r.rows[0].n} items stuck before cursor ${cursor}, resetting to 0`);
+    await setPipelineCursor(jobName, 0);
+    return 0;
+  }
+  return cursor;
+}
+
 /** Get analyzed news (signal ≥ 3) without deep analysis for Step 2 processing. */
-export async function getNeedsDeepAnalysis(limit = 30) {
+export async function getNeedsDeepAnalysis(limit = 30, afterId = 0) {
   const db = await getDb();
   const result = await db.execute({
     sql: `
       SELECT n.*, a.signal_score, a.category, a.industries, a.companies, a.summary
       FROM news_archive n
       JOIN analysis_result a ON a.news_id = n.id
-      WHERE a.signal_score >= 3 AND a.deep_analysis IS NULL
-      ORDER BY n.published_at DESC
+      WHERE a.signal_score >= 3 AND a.deep_analysis IS NULL AND n.id > ?
+      ORDER BY n.id ASC
       LIMIT ?
     `,
-    args: [limit],
+    args: [afterId, limit],
   });
   return result.rows;
 }
@@ -255,19 +345,19 @@ export async function updateDeepAnalysis(newsId, { industries, companies, tags, 
   });
 }
 
-/** Get news items that haven't been analyzed yet, newest first.
- * 新新闻优先分析（对用户价值最高）；旧积压不会永久阻塞新内容。 */
-export async function getUnanalyzedNews(limit = 50) {
+/** Get news items that haven't been analyzed yet, ascending by id (FIFO).
+ * 与游标（afterId）配合：积压先处理旧的，游标单调推进；幂等保证重跑安全。 */
+export async function getUnanalyzedNews(limit = 50, afterId = 0) {
   const db = await getDb();
   const result = await db.execute({
     sql: `
       SELECT n.* FROM news_archive n
       LEFT JOIN analysis_result a ON a.news_id = n.id
-      WHERE a.id IS NULL
-      ORDER BY n.published_at DESC
+      WHERE a.id IS NULL AND n.id > ?
+      ORDER BY n.id ASC
       LIMIT ?
     `,
-    args: [limit],
+    args: [afterId, limit],
   });
   return result.rows;
 }
@@ -546,16 +636,18 @@ export async function saveEventThreads(threads) {
   await db.execute({ sql: 'DELETE FROM event_threads WHERE created_at < ?', args: [cutoff] });
 
   for (const t of threads) {
-    // Skip if a thread with same title exists from the past 24h
-    const existing = await db.execute({
-      sql: 'SELECT id FROM event_threads WHERE title = ? AND created_at > ?',
-      args: [t.title, isoToSqlite(new Date(Date.now() - 24 * 60 * 60 * 1000))],
-    });
-    if (existing.rows.length > 0) continue;
-
+    // 幂等键 = 规范化标题：同标题线程不重复创建，而是更新内容（stage 演进语义）
     await db.execute({
-      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO event_threads (title, news_ids, narrative, stage, confidence, industries, watch_points, dedup_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(dedup_key) DO UPDATE SET
+              title = excluded.title,
+              news_ids = excluded.news_ids,
+              narrative = excluded.narrative,
+              stage = excluded.stage,
+              confidence = excluded.confidence,
+              industries = excluded.industries,
+              watch_points = excluded.watch_points`,
       args: [
         t.title || '未命名事件',
         JSON.stringify(t.news_ids || []),
@@ -564,9 +656,18 @@ export async function saveEventThreads(threads) {
         t.confidence || 'medium',
         JSON.stringify(t.related_industries || []),
         JSON.stringify(t.key_watch_points || []),
+        normalizeThreadTitle(t.title),
       ],
     });
   }
+}
+
+/**
+ * 线程标题规范化：trim + 压缩内部空白 + 小写，作为幂等键。
+ * SQL 迁移的回填用 lower(trim(title)) 近似，此处应用层更严格（内部空白也压缩）。
+ */
+export function normalizeThreadTitle(title: string | null | undefined): string {
+  return String(title || '未命名事件').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 /** Get recent event threads. */

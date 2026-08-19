@@ -1,4 +1,4 @@
-import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads, logEvent, EVENT_TYPES } from './db';
+import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads, logEvent, EVENT_TYPES, getPipelineCursor, setPipelineCursor, resetStuckCursor } from './db';
 import { LLM_CONFIG, describeProvider } from './llm/config';
 import { chatCompletion, getUsageStats, getCostEstimate } from './llm/client';
 import { SCORE_TO_IMPACT } from './constants';
@@ -108,10 +108,17 @@ export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
     throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
   }
 
-  const unanalyzed = await getUnanalyzedNews(batchSize * maxBatches);
+  // 环境变量可调批大小（serverless 60s 时限内安全：默认 5×2=10 条/次）
+  batchSize = parseInt(process.env.PIPELINE_BATCH_SIZE || '', 10) || batchSize;
+  maxBatches = parseInt(process.env.PIPELINE_MAX_BATCHES || '', 10) || maxBatches;
+
+  // 游标：FIFO 续跑；游标前残留（失败/跳过）超阈值时自愈重置
+  const cursor0 = await getPipelineCursor('analyze');
+  const cursor = await resetStuckCursor('analyze', cursor0);
+  const unanalyzed = await getUnanalyzedNews(batchSize * maxBatches, cursor);
   if (unanalyzed.length === 0) {
     console.log('[analyze] No unanalyzed news.');
-    return { analyzed: 0, errors: 0 };
+    return { analyzed: 0, errors: 0, hasMore: false, cursor };
   }
 
   console.log(`[analyze] Provider: ${describeProvider()}`);
@@ -175,7 +182,14 @@ export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
   }
 
   console.log(`[analyze] Done: ${analyzed} analyzed, ${errors} errors`);
-  return { analyzed, errors };
+
+  // 游标推进到本批最后一条被尝试的 id（跳过/失败条目由 resetStuckCursor 兜底重试）
+  const lastId = unanalyzed[unanalyzed.length - 1].id;
+  const nextCursor = Math.max(cursor, Number(lastId) || 0);
+  await setPipelineCursor('analyze', nextCursor);
+  // 拉满窗口说明可能还有更多（hasMore → 调度层可立即再触发）
+  const hasMore = unanalyzed.length === batchSize * maxBatches;
+  return { analyzed, errors, hasMore, cursor: nextCursor };
 }
 
 // ============================================================
@@ -242,10 +256,16 @@ function parseDeepAnalysisResponse(content, newsItems) {
 export async function deepAnalyzeSignals(batchSize = 5, maxBatches = 2) {
   if (!LLM_CONFIG.apiKey) throw new Error('LLM_API_KEY not configured.');
 
-  const pending = await getNeedsDeepAnalysis(batchSize * maxBatches);
+  batchSize = parseInt(process.env.PIPELINE_BATCH_SIZE || '', 10) || batchSize;
+  maxBatches = parseInt(process.env.PIPELINE_MAX_BATCHES || '', 10) || maxBatches;
+
+  // 游标：FIFO 续跑；游标前残留（失败/跳过）超阈值时自愈重置
+  const cursor0 = await getPipelineCursor('deep-analyze');
+  const cursor = await resetStuckCursor('deep-analyze', cursor0);
+  const pending = await getNeedsDeepAnalysis(batchSize * maxBatches, cursor);
   if (pending.length === 0) {
     console.log('[deep-analyze] No items need deep analysis.');
-    return { analyzed: 0, errors: 0 };
+    return { analyzed: 0, errors: 0, hasMore: false, cursor };
   }
 
   console.log(`[deep-analyze] Processing ${pending.length} items for deep analysis...`);
@@ -291,7 +311,13 @@ export async function deepAnalyzeSignals(batchSize = 5, maxBatches = 2) {
   }
 
   console.log(`[deep-analyze] Done: ${analyzed} analyzed, ${errors} errors`);
-  return { analyzed, errors };
+
+  // 游标推进（语义同 analyzeUnanalyzedNews）
+  const lastId = pending[pending.length - 1].id;
+  const nextCursor = Math.max(cursor, Number(lastId) || 0);
+  await setPipelineCursor('deep-analyze', nextCursor);
+  const hasMore = pending.length === batchSize * maxBatches;
+  return { analyzed, errors, hasMore, cursor: nextCursor };
 }
 
 // ============================================================
