@@ -1270,3 +1270,29 @@ export async function getEventLog(eventType?: string, limit = 100) {
     created_at: r.created_at,
   }));
 }
+
+/**
+ * P2.1 埋点按日聚合：每天每类事件计数 + 独立 session 数。
+ * 供 /api/cron/stats 与 P2.5 验证报告使用（json_extract 依赖 SQLite JSON1，libsql 内置）。
+ */
+export async function getEventAnalytics(days = 7) {
+  const db = await getDb();
+  const safeDays = Number.isFinite(days) ? Math.min(Math.max(days, 1), 90) : 7;
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `SELECT date(created_at) as day, event_type,
+                 COUNT(*) as count,
+                 COUNT(DISTINCT json_extract(payload, '$.session')) as sessions
+          FROM event_log
+          WHERE created_at >= ?
+          GROUP BY day, event_type
+          ORDER BY day DESC, event_type`,
+    args: [since],
+  });
+  return result.rows.map((r: Record<string, unknown>) => ({
+    day: r.day,
+    event_type: r.event_type,
+    count: Number(r.count || 0),
+    sessions: Number(r.sessions || 0),
+  }));
+}

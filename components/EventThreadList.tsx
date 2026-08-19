@@ -2,6 +2,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, TrendingUp, AlertCircle, Zap, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/track";
 
 const stageLabels = {
   early: "早期",
@@ -125,6 +126,7 @@ function EventThreadCard({ thread }) {
               <Link
                 href={`/thread/${thread.id}`}
                 className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1"
+                onClick={() => track('thread_expand', { id: thread.id })}
               >
                 查看完整线索 <ExternalLink className="h-3 w-3" />
               </Link>

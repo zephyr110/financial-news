@@ -14,6 +14,7 @@ import {
   setPipelineCursor,
   resetStuckCursor,
   getUnanalyzedNews,
+  getEventAnalytics,
 } from '../lib/db';
 import { runBacktest } from '../lib/market';
 import { startPipelineRun, finishPipelineRun, withPipelineRun, getPipelineHealth } from '../lib/pipeline';
@@ -185,6 +186,43 @@ describe('批处理游标（P1.3）', () => {
     const c = await resetStuckCursor('analyze', 9300);
     expect(c).toBe(9300);
     expect(await getPipelineCursor('analyze')).toBe(0);
+  });
+});
+
+describe('P2.1 埋点按日聚合', () => {
+  it('getEventAnalytics 按日/事件分组，独立 session 去重', async () => {
+    const db = await getDb();
+    const day = new Date().toISOString().slice(0, 10);
+    const payload = (session: string, extra = {}) =>
+      JSON.stringify({ ts: new Date().toISOString(), session, ...extra });
+    // 同 session 两条 signal_click + 一条 thread_expand；另一 session 一条 search_query
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload) VALUES (?, ?, ?)',
+      args: ['signal_click', 101, payload('sess-a', { id: 101 })],
+    });
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload) VALUES (?, ?, ?)',
+      args: ['signal_click', 102, payload('sess-a', { id: 102 })],
+    });
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload) VALUES (?, ?, ?)',
+      args: ['thread_expand', 7, payload('sess-a', { id: 7 })],
+    });
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload) VALUES (?, ?, ?)',
+      args: ['search_query', null, payload('sess-b', { query: '半导体' })],
+    });
+
+    const rows = await getEventAnalytics(7);
+    const sig = rows.find((r) => r.event_type === 'signal_click' && r.day === day);
+    const thr = rows.find((r) => r.event_type === 'thread_expand' && r.day === day);
+    const search = rows.find((r) => r.event_type === 'search_query' && r.day === day);
+    expect(sig).toBeDefined();
+    expect(sig.count).toBe(2);
+    expect(sig.sessions).toBe(1); // 同 session 去重
+    expect(thr.count).toBe(1);
+    expect(search.count).toBe(1);
+    expect(search.sessions).toBe(1);
   });
 });
 

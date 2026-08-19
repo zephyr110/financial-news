@@ -4,6 +4,7 @@ import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, CATEGORY_COLORS, SCORE_COLORS } from "@/lib/constants";
 import { parseItemTime, formatTime, formatDate } from "@/lib/format";
+import { track } from "@/lib/track";
 
 const SOURCE_LABELS = {
   sina: '新浪',
@@ -68,7 +69,11 @@ export default function AnalysisNewsCard({ item }) {
   // 卡片整体可点击 → 跳转信号详情页（analysis_id 为 analysis_result 主键）
   if (!item.analysis_id) return card;
   return (
-    <Link href={`/signal/${item.analysis_id}`} className="block h-full">
+    <Link
+      href={`/signal/${item.analysis_id}`}
+      className="block h-full"
+      onClick={() => track('signal_click', { id: item.analysis_id })}
+    >
       {card}
     </Link>
   );
