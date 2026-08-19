@@ -285,7 +285,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                     </div>
                   </div>
                   {viewMode === "industry" ? (
-                    <IndustryBarChart data={filteredHeatmap} />
+                    <IndustryBarChart data={filteredHeatmap} onIndustryClick={toggleIndustry} />
                   ) : (
                     <CompanyHeatmap data={companyHeatmap} />
                   )}

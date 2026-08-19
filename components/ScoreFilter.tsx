@@ -24,7 +24,7 @@ export default function ScoreFilter({ value, onChange }) {
             type="button"
             onClick={() => onChange(active ? null : score)}
             className={cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium transition-all border-2",
+              "inline-flex items-center gap-1 px-2.5 h-8 rounded-full text-[11px] sm:text-xs font-medium transition-all border-2",
               active
                 ? "border-primary bg-primary/10 shadow-sm"
                 : "border-border bg-card hover:border-primary/40 hover:bg-accent"

@@ -49,7 +49,7 @@ export default function TimeRangeFilter({ value, onChange }) {
               type="button"
               onClick={() => handlePreset(hours)}
               className={cn(
-                "px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium transition-all border",
+                "px-2.5 h-8 rounded-full text-[11px] sm:text-xs font-medium transition-all border",
                 active
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"

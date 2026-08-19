@@ -94,7 +94,7 @@ export default function BacktestPanel() {
                   type="button"
                   onClick={() => setTab("industry")}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] sm:text-xs transition-colors",
+                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-[11px] sm:text-xs transition-colors",
                     tab === "industry"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -107,7 +107,7 @@ export default function BacktestPanel() {
                   type="button"
                   onClick={() => setTab("score")}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] sm:text-xs transition-colors",
+                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-[11px] sm:text-xs transition-colors",
                     tab === "score"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -206,14 +206,15 @@ function ReturnCell({ value }: { value: number }) {
       </span>
     );
   const isPositive = value > 0;
+  // A股惯例：红涨绿跌
   return (
     <span
       className={cn(
         "hidden sm:flex items-center gap-1 text-[11px] sm:text-xs font-medium tabular-nums",
         isPositive
-          ? "text-emerald-600 dark:text-emerald-400"
+          ? "text-red-600 dark:text-red-400"
           : value < 0
-            ? "text-red-600 dark:text-red-400"
+            ? "text-emerald-600 dark:text-emerald-400"
             : "text-muted-foreground"
       )}
     >
@@ -230,7 +231,7 @@ function ReturnCell({ value }: { value: number }) {
 function WinRateCell({ rate }: { rate: number }) {
   return (
     <div className="hidden sm:flex items-center gap-1.5">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
         <div
           className="h-full rounded-full bg-primary transition-all"
           style={{ width: `${rate}%` }}

@@ -56,10 +56,10 @@ export default function SiteHeader({ onRefresh, refreshing, lastUpdated }: { onR
                     key={href}
                     href={href}
                     className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors",
+                      "inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-sm font-medium transition-colors",
                       active
                         ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     )}
                   >
                     <Icon className="h-4 w-4" />

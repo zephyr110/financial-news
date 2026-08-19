@@ -14,8 +14,9 @@ interface TrendDeltaProps {
 /**
  * Trend comparison indicator — shows change vs previous period.
  *
- * - positive: green up arrow
- * - negative: red down arrow
+ * A股惯例：红涨绿跌（增长=红 ↑，下降=绿 ↓）
+ * - positive: red up arrow
+ * - negative: green down arrow
  * - zero: gray dash (持平)
  * - missing (null/undefined/NaN): renders nothing
  */
@@ -73,8 +74,8 @@ export default function TrendDelta({
         isZero
           ? "text-muted-foreground"
           : diff > 0
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-red-600 dark:text-red-400",
+            ? "text-red-600 dark:text-red-400"
+            : "text-emerald-600 dark:text-emerald-400",
         className
       )}
     >

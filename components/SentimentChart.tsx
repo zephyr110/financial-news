@@ -9,9 +9,10 @@ import {
 } from "recharts";
 import { CATEGORY_LABELS } from "@/lib/constants";
 
+// A股惯例：红涨绿跌 → 看多红、看空绿
 const SENTIMENT_COLORS = {
-  positive: "#16a34a",
-  negative: "#e11d48",
+  positive: "#dc2626",
+  negative: "#16a34a",
   neutral: "#6b7280",
   mixed: "#f97316",
 };
