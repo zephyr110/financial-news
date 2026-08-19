@@ -30,6 +30,15 @@ export const SCORE_COLORS = {
   1: 'bg-gray-300 text-gray-600',
 };
 
+// 分数等级中文标签（全站统一词表，与 SCORE_TO_IMPACT 一一对应）
+export const SCORE_LABELS = {
+  5: '重大',
+  4: '重要',
+  3: '关注',
+  2: '一般',
+  1: '噪声',
+};
+
 export const SCORE_TO_IMPACT = {
   5: 'critical',
   4: 'significant',

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,8 @@ export default function AnalysisNewsCard({ item }) {
   const timeLabel = formatTime(time);
   const dateLabel = formatDate(time);
 
-  return (
-    <Card className="group cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm">
+  const card = (
+    <Card className="group cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm h-full">
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-start gap-3 sm:gap-4">
           <span className={cn(
@@ -62,5 +63,13 @@ export default function AnalysisNewsCard({ item }) {
         </div>
       </CardContent>
     </Card>
+  );
+
+  // 卡片整体可点击 → 跳转信号详情页（analysis_id 为 analysis_result 主键）
+  if (!item.analysis_id) return card;
+  return (
+    <Link href={`/signal/${item.analysis_id}`} className="block h-full">
+      {card}
+    </Link>
   );
 }

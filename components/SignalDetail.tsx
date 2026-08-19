@@ -262,7 +262,7 @@ export default function SignalDetail({
           </div>
           <div className="mt-3">
             <Link
-              href="/analysis"
+              href={`/thread/${signal.event_thread.id}`}
               className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1"
             >
               查看完整线索 <ExternalLink className="h-3 w-3" />

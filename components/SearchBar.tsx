@@ -22,6 +22,8 @@ interface SearchBarProps {
     minScore: number;
     hoursBack: number;
   }) => void;
+  /** 清空输入时回调（用于让父组件退出搜索态） */
+  onClear?: () => void;
   loading?: boolean;
   className?: string;
 }
@@ -32,6 +34,7 @@ interface SearchBarProps {
  */
 export default function SearchBar({
   onSearch,
+  onClear,
   loading = false,
   className,
 }: SearchBarProps) {
@@ -68,6 +71,7 @@ export default function SearchBar({
     setQuery("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     inputRef.current?.focus();
+    onClear?.();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

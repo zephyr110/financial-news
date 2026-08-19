@@ -84,7 +84,7 @@
 ### 关键设计决策
 
 - **SQLite 而非 Postgres**: 个人项目无需额外数据库进程，单文件存储，`better-sqlite3` 同步 API 足够快
-- **定时拉取**: 利用 Next.js API route 做 cron 端点，通过外部 cron 服务（或 Vercel Cron）触发，减少常驻进程
+- **定时拉取**: 利用 Next.js API route 做 cron 端点，通过外部 cron 服务触发，减少常驻进程。当前实现：**QStash V2 schedules 主触发**（30 分钟一轮，`7,37 * * * *`，fetch-market 错后 15 分钟保序，认证经 `Upstash-Forward-Authorization` 转发 CRON_SECRET）+ **GitHub Actions 每日 21:17 UTC 兜底**（Actions schedule 不保证准点，仅防 QStash 故障漏跑）
 - **LLM 异步执行**: 新闻归档和分析解耦，分析结果稍后出不影响新闻流实时性
 - **两套 API 共存**: `/api/news`（实时快讯）和 `/api/analysis`（加工后分析）互不干扰
 
@@ -243,7 +243,7 @@ SYSTEM: 给定过去24小时内所有重要财经新闻（已标注行业和标�
 
 - Step 1: 每条新闻入库后异步触发，批量处理（攒够 10 条或等待 60s 触发一次 LLM 调用）
 - Step 2: 紧随 Step 1，对 signal ≥ 3 的新闻立即处理
-- Step 3: 通过 cron 每 6h 触发一次
+- Step 3: 通过 cron 触发（当前 QStash 每 30 分钟一轮，仅处理新增新闻，token 成本与频率无关）
 - 失败重试: API 调用失败后最多重试 3 次，指数退避
 
 ---
@@ -369,3 +369,74 @@ pages/analysis.js              ← ISR, revalidate: 600
 - [ ] 分析面板首屏加载 ≤ 3s（ISR + CDN）
 - [ ] LLM 日 token 消耗 ≤ 25 万
 - [ ] 从信号出现到分析结果可用的延迟 ≤ 5 分钟
+
+---
+
+## 10. 未来 Agent 升级路径
+
+> 调研日期: 2026-08-18  
+> 参考对象: [Mini-Agent (MiniMax)](https://github.com/MiniMax-AI/Mini-Agent)、[DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness)
+
+### 10.1 参考架构对比
+
+| 维度 | Mini-Agent 式 | dsh 式 |
+|------|--------------|--------|
+| 定位 | 最小专业 agent 样板（领域应用骨架） | 通用 agent 运行时平台 |
+| 实现 | Python 单包（uv），平铺业务代码 | TS monorepo（70+ 包），一切皆插件（Cordis） |
+| 核心机制 | 执行循环 + Session Note 持久记忆 + 上下文自动压缩 + MCP/Skills | 能力接缝（Service Definition + Provider + Consumer）、三大事件域、profile/bundle 配置化组合、turn/step 循环 |
+| 可读性/审计 | 整个库几小时可读完 | 需先学 Cordis 编程范式 + 分层组合模型 |
+| 与本项目契合 | 思想可小时级翻译为 TS/Next.js | 运行时与 Next.js 单体冲突（需 Cordis 树引导） |
+| 稳定性 | 样板项目，可自行演进 | developer preview，官方明示 breaking changes |
+
+### 10.2 架构结论
+
+**骨架用 Mini-Agent 式，原则吸收 dsh 式。** 本项目是单人使用的垂直信息处理应用，需要的能力是"一个研究问答循环 + 5-6 个领域工具 + 会话持久化"，规模与 Mini-Agent 匹配；dsh 的 sandbox/subagent 编排/插件生态等平台能力 90% 用不上。
+
+从 dsh 吸收的三条原则（在阶段 A/B 落实）：
+
+1. **能力接缝三角色**：每个可替换能力 = Service Definition + Provider + Consumer。本项目对应：NewsSource（sina/eastmoney/cls）、Analyzer（deepseek-v4/其他模型）、Store（SQLite）。
+2. **模型可见即记录**：一切进入模型请求的信息必须可从持久化日志重建。本项目落实为 append-only 事件链（ingested → scored → mapped → threaded），信号评分可完整回溯。
+3. **配置化组合**：数据源开关、批大小、调度间隔、模型参数从配置声明，而非硬编码。
+
+从 Mini-Agent 吸收的能力：Session Note 式研究会话持久化、上下文自动压缩（长研究报告会话）、执行循环全程日志。
+
+### 10.3 升级路径（三阶段）
+
+> 实施状态：阶段 A/B 已实施（2026-08-18，PR #5，merge commit `aded876`），阶段 C 未启动
+
+**阶段 A：接缝化重构（低风险，先行）**
+
+- `lib/` 规范为三接缝接口 + 注册表：`NewsSourceProvider` / `AnalyzerProvider` / `StoreProvider`
+- 现有实现（sina、eastmoney、deepseek、sqlite）降级为默认 Provider
+- 数据源/模型切换变为配置级操作（东财挂了换财联社 = 改配置）
+- 代价小（现有代码已相对独立），为阶段 B/C 铺路
+
+**阶段 B：研究 Agent（轻量自研，主目标）**
+
+- 把现有 3-step 批处理管道包装为领域工具集：
+  - `search_news(关键词/行业/时间窗)` — 检索归档新闻
+  - `get_event_threads()` — 查询事件线索及阶段
+  - `get_industry_heatmap(行业/时间窗)` — 行业信号强度
+  - `get_backtest(信号/行业)` — 信号后 N 日表现
+  - `watch_event(事件ID)` — 订阅后续发展
+- 轻量执行循环（Mini-Agent 式 ReactLoop 翻译为 TS），turn/step 模型
+- 研究会话持久化（Session Note 式）+ 上下文自动压缩
+- 模型角色从"批量评分器"升级为"交互式研究员"：用户提问"存储涨价链条现在到哪个阶段？"→ agent 调工具 → 结构化回答
+
+**阶段 C：多 Agent 编排（远期，防御性门槛）**
+
+- 宏观 agent + 行业 agent + 交叉验证 agent 协作时再评估引入 dsh 运行时
+- 业务逻辑以插件形式移植到 dsh
+
+### 10.4 阶段 C 触发条件（不满足不启动）
+
+- [ ] 需要多 agent 并行协作且收益明确（对比单一研究 agent 的实验证据）
+- [ ] dsh 发布正式版（非 rc/preview）
+- [ ] 本项目的 agent 形态扩展为独立 CLI/桌面客户端
+- [ ] 评估：dsh 引入的维护成本 < 自研实现成本的 50%
+
+### 10.5 约束
+
+- LLM 一律通过 API key 调用（DeepSeek V4 为默认 provider，Agent 层延续）
+- 前端交互沿用 lucide icon 约束，禁止 emoji 作 icon
+- Agent 输出仅做信息准备，不做买卖建议（沿用第 1 节定位）
