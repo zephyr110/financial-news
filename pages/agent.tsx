@@ -69,10 +69,12 @@ export default function AgentPage() {
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId ?? undefined, message: text }),
+        body: JSON.stringify({ sessionId: sessionId ?? undefined, message: text, stream: true }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+
+      // 非流式失败响应（400/503/500）→ 与旧逻辑一致处理
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
         // 服务端错误会携带已创建的 sessionId：保留它，失败重试续用同一会话而非创建孤儿会话
         if (data.sessionId) {
           setSessionId(data.sessionId);
@@ -88,23 +90,87 @@ export default function AgentPage() {
         return;
       }
 
-      setSessionId(data.sessionId);
-      persistSession(data.sessionId);
-      setMessages((prev) => [
-        ...prev,
-        ...(data.toolLog || []).map((t, i) => ({
-          id: `tool-${Date.now()}-${i}-${t.name}`,
-          role: "assistant" as const,
-          content: "",
-          toolCall: { name: t.name, args: t.args } as ToolCallInfo,
-        })),
-        {
-          id: `reply-${Date.now()}`,
-          role: "assistant" as const,
-          content: data.reply,
-          toolLog: data.toolLog || [],
-        },
-      ]);
+      // ── SSE 流式读取：tool_start → delta… → done ──
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamMsgId: string | null = null;
+      let streamText = "";
+      let toolLogs: ChatItem["toolLog"] = [];
+      let doneSessionId: number | null = null;
+
+      const handleEvent = (event: string, payload: any) => {
+        if (event === "tool_start") {
+          // 工具调用 JSON 的 delta 已累积在流式消息中 → 移除并替换为工具气泡
+          if (streamMsgId) {
+            setMessages((prev) => prev.filter((m) => m.id !== streamMsgId));
+            streamMsgId = null;
+            streamText = "";
+          }
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `tool-${Date.now()}-${payload.tool}`,
+              role: "assistant" as const,
+              content: "",
+              toolCall: { name: payload.tool, args: payload.args || {} } as ToolCallInfo,
+            },
+          ]);
+        } else if (event === "delta") {
+          streamText += payload.text || "";
+          if (!streamMsgId) {
+            streamMsgId = `stream-${Date.now()}`;
+            setMessages((prev) => [...prev, { id: streamMsgId!, role: "assistant", content: "" }]);
+          }
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamMsgId ? { ...m, content: streamText } : m))
+          );
+        } else if (event === "done") {
+          doneSessionId = payload.sessionId;
+          toolLogs = payload.toolLog || [];
+          const reply = streamText || payload.reply || "";
+          // 工具日志附加到最终回复气泡（若无 delta 累积则新建消息）
+          setMessages((prev) =>
+            streamMsgId
+              ? prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
+              : [...prev, { id: `reply-${Date.now()}`, role: "assistant" as const, content: reply, toolLog: toolLogs }]
+          );
+        } else if (event === "error") {
+          setError(payload.error || "研究助手暂时不可用，请稍后再试");
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() || "";
+        for (const block of blocks) {
+          let evt = "";
+          let data = "";
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event:")) evt = line.slice(6).trim();
+            else if (line.startsWith("data:")) data = line.slice(5).trim();
+          }
+          if (!evt || !data) continue;
+          try {
+            handleEvent(evt, JSON.parse(data));
+          } catch {
+            // 忽略无法解析的事件块
+          }
+        }
+      }
+
+      if (doneSessionId) {
+        setSessionId(doneSessionId);
+        persistSession(doneSessionId);
+      } else if (streamMsgId) {
+        // 流中断（超时/网络断开）但已有内容：保留已显示的部分
+        setMessages((prev) =>
+          prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
+        );
+      }
     } catch (e) {
       console.error("Agent request failed:", e);
       setError("网络错误，请稍后重试");
@@ -113,7 +179,7 @@ export default function AgentPage() {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, sessionId]);
+  }, [input, loading, sessionId, persistSession]);
 
   const newSession = useCallback(() => {
     setSessionId(null);

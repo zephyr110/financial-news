@@ -54,16 +54,29 @@ export function tryParseToolCall(content: string): { tool?: string; args?: Recor
 export interface RunTurnOptions {
   sessionId?: number;
   userMessage: string;
+  /** SSE 流式事件回调（tool_start / tool_end / delta / done） */
+  onEvent?: (event: AgentTurnEvent) => void;
 }
+
+export type AgentTurnEvent =
+  | { type: 'tool_start'; tool: string; args: Record<string, unknown> }
+  | { type: 'tool_end'; tool: string; ok: boolean; summary: string }
+  | { type: 'delta'; text: string }
+  | { type: 'done'; sessionId: number; reply: string; steps: number; toolLog: AgentTurnResult['toolLog']; truncated: boolean };
 
 /**
  * 执行一轮研究对话：入库 → 循环 → 持久化。
  * 无 sessionId 时自动创建新会话。
+ *
+ * 流式：opts.onEvent 提供后，工具调用与最终回答的生成过程实时推送
+ * （最终回答经 chatCompletion stream 逐字回调）。
  */
 export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResult & { sessionId: number }> {
   if (!LLM_CONFIG.apiKey) {
     throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
   }
+
+  const emit = opts.onEvent ?? (() => {});
 
   let sessionId: number;
   try {
@@ -92,7 +105,13 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
         ...turnMessages,
       ];
 
-      const { content } = await chatCompletion({ messages, maxTokens: 4096 });
+      // 每步都流式：工具调用 JSON 短（一闪而过），最终回答逐字推送
+      const { content } = await chatCompletion({
+        messages,
+        maxTokens: 4096,
+        stream: true,
+        onDelta: (text: string) => emit({ type: 'delta', text }),
+      });
 
       const contentText = (content || '').trim();
       if (!contentText) {
@@ -105,6 +124,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
         reply = contentText;
         await appendAgentMessage(sessionId, 'assistant', reply);
         await touchAgentSession(sessionId);
+        emit({ type: 'done', sessionId, reply, steps: steps + 1, toolLog, truncated: false });
         return { sessionId, reply, steps: steps + 1, toolLog, truncated: false };
       }
 
@@ -115,6 +135,8 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
         await appendAgentMessage(sessionId, 'user', feedback);
         continue;
       }
+
+      emit({ type: 'tool_start', tool: tool.name, args: toolCall.args || {} });
 
       let resultText: string;
       let ok = true;
@@ -127,12 +149,14 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
         ok = false;
         resultText = `工具执行失败: ${(err as Error).message}`;
       }
+      const summary = resultText.split('\n')[0].slice(0, 100);
       toolLog.push({
         name: tool.name,
         args: toolCall.args || {},
         ok,
-        summary: resultText.split('\n')[0].slice(0, 100),
+        summary,
       });
+      emit({ type: 'tool_end', tool: tool.name, ok, summary });
 
       const meta = { toolCall: { name: tool.name, args: toolCall.args || {} } };
       // 持久化模型的真实输出（JSON 工具调用），而非占位符——跨轮次重放时模型
@@ -148,6 +172,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
     reply = `已达到单轮工具调用上限（${MAX_STEPS} 步），以下是目前掌握的信息。如需继续深入，请追问。`;
     await appendAgentMessage(sessionId, 'assistant', reply);
     await touchAgentSession(sessionId);
+    emit({ type: 'done', sessionId, reply, steps, toolLog, truncated: true });
     return { sessionId, reply, steps, toolLog, truncated: true };
   } catch (err) {
     // 错误时携带已创建的 sessionId：客户端失败重试可续用同一会话，避免孤儿会话

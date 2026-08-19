@@ -51,6 +51,7 @@ interface SignalDetailSignal {
   source: string;
   content: string;
   published_at: string;
+  docurl?: string | null;
   event_thread: {
     id: number;
     title: string;
@@ -192,7 +193,7 @@ export default function SignalDetail({
             行业回测
           </h3>
           <p className="text-[10px] sm:text-[11px] text-muted-foreground mb-3">
-            信号出现后行业指数平均涨跌幅 · 过去 90 天
+            信号出现后行业指数平均涨跌幅 · 过去 90 天 · 胜率 = T+1 上涨样本占比
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-[11px] sm:text-xs">
@@ -214,6 +215,14 @@ export default function SignalDetail({
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums">
                       {row.samples}
+                      {row.samples < 20 && (
+                        <span
+                          className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 align-middle"
+                          title="样本较少，结论谨慎参考"
+                        >
+                          样本少
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums">
                       <ReturnSpan value={row.avg_d1} />
@@ -276,9 +285,21 @@ export default function SignalDetail({
         <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
           原始快讯
         </h3>
-        <p className="text-[11px] sm:text-xs text-muted-foreground mb-2">
-          来源：{signal.source || "未知"} · {formatDate(signal.published_at)}
-        </p>
+        <div className="flex items-center justify-between flex-wrap gap-1.5 mb-2">
+          <p className="text-[11px] sm:text-xs text-muted-foreground">
+            来源：{signal.source || "未知"} · {formatDate(signal.published_at)}
+          </p>
+          {signal.docurl && (
+            <a
+              href={signal.docurl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-primary hover:underline"
+            >
+              查看原文 <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
         <div className="text-[13px] sm:text-sm text-foreground leading-relaxed bg-accent/30 rounded-lg p-3">
           {signal.content || "原始快讯暂不可用"}
         </div>

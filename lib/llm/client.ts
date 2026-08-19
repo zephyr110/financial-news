@@ -9,7 +9,13 @@ import { LLM_CONFIG, getChatCompletionsUrl, PRICING } from './config';
 
 export const usageLog = [];
 
-export async function chatCompletion({ systemPrompt = undefined, userMessage = undefined, messages = undefined, extra = undefined, temperature = undefined, maxTokens = undefined }) {
+/**
+ * OpenAI-compatible chat completion.
+ *
+ * @param stream  为 true 时使用 SSE 流式响应，逐段回调 onDelta(text)
+ * @param onDelta 流式时每个内容片段回调（用于前端打字机式展示）
+ */
+export async function chatCompletion({ systemPrompt = undefined, userMessage = undefined, messages = undefined, extra = undefined, temperature = undefined, maxTokens = undefined, stream = false, onDelta = undefined }) {
   const url = getChatCompletionsUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_CONFIG.timeoutMs);
@@ -24,6 +30,7 @@ export async function chatCompletion({ systemPrompt = undefined, userMessage = u
       ],
       temperature: temperature ?? LLM_CONFIG.temperature,
       max_tokens: maxTokens ?? LLM_CONFIG.maxTokens,
+      ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
       ...extra,
     };
 
@@ -42,17 +49,59 @@ export async function chatCompletion({ systemPrompt = undefined, userMessage = u
       throw new Error(`LLM API ${res.status}: ${text.slice(0, 300)}`);
     }
 
-    const json = await res.json();
+    if (!stream) {
+      const json = await res.json();
+      const entry = {
+        timestamp: new Date().toISOString(),
+        model: LLM_CONFIG.model,
+        usage: json.usage,
+      };
+      usageLog.push(entry);
+      const content = json.choices?.[0]?.message?.content || '';
+      return { content, usage: json.usage, model: LLM_CONFIG.model };
+    }
 
-    const entry = {
+    // ── SSE 流式解析 ──
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('LLM stream not supported');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+    let usage;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) {
+            content += delta;
+            onDelta?.(delta);
+          }
+          if (json.usage) usage = json.usage;
+        } catch {
+          // 忽略不完整/非 JSON 数据行
+        }
+      }
+    }
+
+    usageLog.push({
       timestamp: new Date().toISOString(),
       model: LLM_CONFIG.model,
-      usage: json.usage,
-    };
-    usageLog.push(entry);
-
-    const content = json.choices?.[0]?.message?.content || '';
-    return { content, usage: json.usage, model: LLM_CONFIG.model };
+      usage,
+    });
+    return { content, usage, model: LLM_CONFIG.model };
   } finally {
     clearTimeout(timeout);
   }

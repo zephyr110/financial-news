@@ -133,6 +133,15 @@ export async function saveMarketData(rows) {
 }
 
 /**
+ * 行业名 → 板块名别名映射（LLM 标注的申万行业名与东财板块名不完全一致时兜底）。
+ * 仅在无直接匹配时启用（见 runBacktest），不会造成双计。
+ */
+const INDUSTRY_ALIASES: Record<string, string> = {
+  '半导体': '半导体材料',
+  '光模块': '光通信模块',
+};
+
+/**
  * Run backtest: correlate past signals with subsequent market returns.
  */
 export async function runBacktest(daysBack = 90) {
@@ -190,7 +199,11 @@ export async function runBacktest(daysBack = 90) {
   // Use INSERT OR REPLACE with UNIQUE(signal_date, industry) — atomic, no DELETE needed
   const upserts: Array<[string, string, number, number, number | null, number | null, number | null]> = [];
   for (const [, sig] of signalMap) {
-    const rows = marketByIndustry.get(sig.industry) || [];
+    // 别名兜底：LLM 行业名与板块名不一致时映射到标准板块（仅无直接匹配时）
+    let rows = marketByIndustry.get(sig.industry) || [];
+    if (rows.length === 0 && INDUSTRY_ALIASES[sig.industry]) {
+      rows = marketByIndustry.get(INDUSTRY_ALIASES[sig.industry]) || [];
+    }
     const start = rows.findIndex((r) => r.trade_date > sig.date);
     const fwd = start >= 0 ? rows.slice(start, start + 7) : [];
 
