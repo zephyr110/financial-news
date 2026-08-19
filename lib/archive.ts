@@ -26,6 +26,7 @@ function normalizeSinaItem(item) {
     title: null,
     content: item.rich_text,
     published_at: published,
+    docurl: item.docurl || null,
   };
 }
 

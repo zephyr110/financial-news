@@ -46,11 +46,22 @@ async function initSchema(db) {
       content       TEXT    NOT NULL,
       published_at  TEXT    NOT NULL,
       fetched_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      docurl        TEXT,             -- 原文链接（新浪 feed 提供）
       UNIQUE(source, source_id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_news_published ON news_archive(published_at);
     CREATE INDEX IF NOT EXISTS idx_news_source    ON news_archive(source);
+  `);
+
+  // 迁移：老库补充 docurl 列（列已存在时 ALTER 抛错，静默跳过）
+  try {
+    await db.execute('ALTER TABLE news_archive ADD COLUMN docurl TEXT');
+  } catch {
+    // column already exists
+  }
+
+  await db.executeMultiple(`
 
     CREATE TABLE IF NOT EXISTS analysis_result (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,14 +166,14 @@ function rowId(value) {
 // --- News CRUD ---
 
 /** Insert a news item. Returns the row id, or null if already exists (duplicate). */
-export async function insertNews({ source, source_id, title, content, published_at }) {
+export async function insertNews({ source, source_id, title, content, published_at, docurl = null }) {
   const db = await getDb();
   const result = await db.execute({
     sql: `
-      INSERT OR IGNORE INTO news_archive (source, source_id, title, content, published_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO news_archive (source, source_id, title, content, published_at, docurl)
+      VALUES (?, ?, ?, ?, ?, ?)
     `,
-    args: [source, source_id, title ?? null, content, published_at],
+    args: [source, source_id, title ?? null, content, published_at, docurl],
   });
   if (result.rowsAffected === 0) return null;
   return rowId(result.lastInsertRowid);
@@ -176,13 +187,13 @@ export async function insertNewsBatch(items) {
   // Build multi-value INSERT; SQLite supports up to ~500 params per statement
   for (let i = 0; i < items.length; i += 50) {
     const batch = items.slice(i, i + 50);
-    const values = batch.map(() => '(?, ?, ?, ?, ?)').join(', ');
+    const values = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
     const args = batch.flatMap(item => [
-      item.source, item.source_id, item.title ?? null, item.content, item.published_at,
+      item.source, item.source_id, item.title ?? null, item.content, item.published_at, item.docurl ?? null,
     ]);
     try {
       const result = await db.execute({
-        sql: `INSERT OR IGNORE INTO news_archive (source, source_id, title, content, published_at) VALUES ${values}`,
+        sql: `INSERT OR IGNORE INTO news_archive (source, source_id, title, content, published_at, docurl) VALUES ${values}`,
         args,
       });
       inserted += result.rowsAffected || 0;
