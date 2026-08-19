@@ -217,6 +217,23 @@ export async function runBacktest(daysBack = 90) {
 }
 
 /**
+ * Get the most recent trading day's sector quotes (for the market comparison panel).
+ * Falls back to the latest available trade_date when today is a non-trading day.
+ */
+export async function getTodayMarketData(limit = 8) {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `SELECT name, close, change_pct FROM market_data
+          WHERE trade_date = (SELECT MAX(trade_date) FROM market_data)
+            AND change_pct IS NOT NULL
+          ORDER BY ABS(change_pct) DESC
+          LIMIT ?`,
+    args: [Math.min(limit, 20)],
+  });
+  return result.rows;
+}
+
+/**
  * Get backtest summary grouped by signal score.
  */
 export async function getBacktestSummary() {

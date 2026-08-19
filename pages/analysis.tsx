@@ -45,6 +45,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
   const [threads, setThreads] = useState(ssgThreads || []);
   const [sentimentBreakdown, setSentimentBreakdown] = useState(ssgSentiment || []);
   const [companyHeatmap, setCompanyHeatmap] = useState(ssgCompanyHeatmap || []);
+  const [marketToday, setMarketToday] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"industry" | "company">("industry");
   const [error, setError] = useState(ssgError ?? null);
   const [fetching, setFetching] = useState(false);
@@ -84,6 +85,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       setThreads(data.threads || []);
       setSentimentBreakdown(data.sentimentBreakdown || []);
       setCompanyHeatmap(data.companyHeatmap || []);
+      setMarketToday(data.marketToday || []);
       setNextCursor(data.nextCursor || null);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -235,6 +237,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           <SearchBar
             onSearch={handleSearch}
+            onClear={handleClearSearch}
             loading={searchLoading}
             className="mb-5"
           />
@@ -285,6 +288,32 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                     <IndustryBarChart data={filteredHeatmap} />
                   ) : (
                     <CompanyHeatmap data={companyHeatmap} />
+                  )}
+                  {/* 当日板块行情对照（A股惯例：红涨绿跌） */}
+                  {viewMode === "industry" && marketToday.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-muted-foreground">今日板块涨跌</span>
+                        <span className="text-[10px] text-muted-foreground">收盘</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {marketToday.map((m: any) => (
+                          <span key={m.name} className="text-[11px] sm:text-xs flex items-center gap-1">
+                            <span className="text-muted-foreground">{m.name}</span>
+                            <span
+                              className={
+                                Number(m.change_pct) >= 0
+                                  ? "text-red-600 dark:text-red-400"
+                                  : "text-emerald-600 dark:text-emerald-400"
+                              }
+                            >
+                              {Number(m.change_pct) >= 0 ? "+" : ""}
+                              {Number(m.change_pct).toFixed(2)}%
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="bg-card border rounded-xl p-4 sm:p-5">

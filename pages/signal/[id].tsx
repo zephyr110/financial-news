@@ -6,7 +6,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import SiteHeader from "../../components/SiteHeader";
 import SignalDetailComponent from "../../components/SignalDetail";
 import ErrorBanner from "../../components/ErrorBanner";
-import { getSignalById, getHighScoreSignals } from "../../lib/db";
+import { getSignalById, getHighScoreSignals, getRelatedSignals, getBacktestByIndustry } from "../../lib/db";
 
 export default function SignalPage({ data: ssgData, error: ssgError }) {
   const router = useRouter();
@@ -167,9 +167,25 @@ export async function getStaticProps({ params }: { params: { id: string } }) {
       return { notFound: true };
     }
 
+    // 与 /api/signal/[id] 保持一致：SSG 时并行预取相关信号与行业回测，
+    // 避免 ISR 首屏出现空白区块（revalidate 期间内容会同步更新）
+    const [related, backtest] = await Promise.all([
+      getRelatedSignals(signalId, signal.industries || [], signal.companies || [], 5),
+      getBacktestByIndustry(90),
+    ]);
+
+    const signalIndustries: string[] = signal.industries || [];
+    const relevantBacktest = backtest.filter((b: any) => {
+      if (!b.industry) return false;
+      return signalIndustries.some(
+        (ind: string) =>
+          b.industry === ind || b.industry.includes(ind) || ind.includes(b.industry)
+      );
+    });
+
     return {
       props: {
-        data: { signal, related: [], backtest: [] },
+        data: { signal, related: related || [], backtest: relevantBacktest },
         error: null,
       },
       revalidate: 3600,

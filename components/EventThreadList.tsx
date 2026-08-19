@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, TrendingUp, AlertCircle, Zap } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, TrendingUp, AlertCircle, Zap, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const stageLabels = {
@@ -35,7 +36,7 @@ export default function EventThreadList({ threads }) {
       ) : (
         <div className="space-y-3">
           {threads.map((thread) => (
-            <EventThreadCard key={thread.id ?? Math.random()} thread={thread} />
+            <EventThreadCard key={thread.id} thread={thread} />
           ))}
         </div>
       )}
@@ -117,6 +118,16 @@ function EventThreadCard({ thread }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {thread.id != null && (
+            <div className="pt-1.5">
+              <Link
+                href={`/thread/${thread.id}`}
+                className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1"
+              >
+                查看完整线索 <ExternalLink className="h-3 w-3" />
+              </Link>
             </div>
           )}
         </div>

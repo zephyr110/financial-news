@@ -1,15 +1,7 @@
 import { cn } from "@/lib/utils";
-import { SCORE_COLORS } from "@/lib/constants";
+import { SCORE_COLORS, SCORE_LABELS } from "@/lib/constants";
 
 const SCORES = [5, 4, 3, 2, 1];
-
-const SCORE_LABELS = {
-  5: "重大",
-  4: "重要",
-  3: "关注",
-  2: "一般",
-  1: "噪声",
-};
 
 // Extract bg color from SCORE_COLORS, keeping text color for readability
 function scoreBadgeStyle(score) {

@@ -357,7 +357,7 @@ export async function getAnalyzedNews({ minScore = 1, limit = 50, hoursBack = 24
   const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
   const result = await db.execute({
     sql: `
-      SELECT n.*, a.signal_score, a.category, a.impact_level, a.industries, a.companies,
+      SELECT n.*, a.id as analysis_id, a.signal_score, a.category, a.impact_level, a.industries, a.companies,
              a.sentiment, a.summary, a.deep_analysis, a.tags, a.analyzed_at
       FROM news_archive n
       JOIN analysis_result a ON a.news_id = n.id

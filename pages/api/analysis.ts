@@ -1,4 +1,5 @@
 import { getAnalyzedNews, getAnalysisStatsWithComparison, getIndustryHeatmap, getIndustryTrend, getEventThreads, getCompanyHeatmap } from '../../lib/db';
+import { getTodayMarketData } from '../../lib/market';
 import { safeParse } from '../../lib/utils';
 
 function clampInt(value: any, fallback: number, min: number, max: number): number {
@@ -18,13 +19,14 @@ export default async function handler(req: any, res: any) {
     const minScore = clampInt(req.query.minScore, 1, 1, 5);
     const cursor = clampInt(req.query.cursor, 0, 0, 9999999);
 
-    const [news, statsComparison, heatmap, trend, threads, companyHeatmap] = await Promise.all([
+    const [news, statsComparison, heatmap, trend, threads, companyHeatmap, marketToday] = await Promise.all([
       getAnalyzedNews({ minScore, hoursBack, limit: 50, cursor }),
       getAnalysisStatsWithComparison(hoursBack, hoursBack),
       getIndustryHeatmap(hoursBack),
       getIndustryTrend(trendHours),
       getEventThreads(hoursBack),
       getCompanyHeatmap(hoursBack),
+      getTodayMarketData(8),
     ]);
 
     const stats = {
@@ -47,7 +49,7 @@ export default async function handler(req: any, res: any) {
 
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=300');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.status(200).json({ items, stats, heatmap, trend, threads, nextCursor, sentimentBreakdown, companyHeatmap });
+    res.status(200).json({ items, stats, heatmap, trend, threads, nextCursor, sentimentBreakdown, companyHeatmap, marketToday });
   } catch (error) {
     console.error('Analysis API error:', error);
     res.status(500).json({ error: 'Failed to fetch analysis' });

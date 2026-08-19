@@ -43,7 +43,7 @@ export default function TodaySignalSummary({ items }: TodaySignalSummaryProps) {
           <span className="text-muted-foreground">
             {totalNews} 条快讯中，AI 识别{" "}
             <span className="font-semibold text-foreground">
-              {analyzed.length} 条重要信号
+              {analyzed.length} 条值得关注信号
             </span>
           </span>
           <span className="text-muted-foreground">·</span>
