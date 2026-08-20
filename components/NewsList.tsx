@@ -101,8 +101,8 @@ export default function NewsList({ todayItems, pastDates }: Props) {
               <span className="text-sm font-medium text-foreground">
                 {formatDayLabel(group.date)}
               </span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {group.items.length}
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
+                {group.items.length} 条
               </span>
               <ChevronDown
                 className={cn(
@@ -152,8 +152,16 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                 <span className="text-sm font-medium text-foreground">
                   {formatDayLabel(date)}
                 </span>
-                {state?.loading && (
+                {state?.loading ? (
                   <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                ) : state?.items ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
+                    {state.items.length} 条
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground/60">
+                    点击展开
+                  </span>
                 )}
                 <ChevronDown
                   className={cn(

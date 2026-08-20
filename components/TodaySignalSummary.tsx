@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Zap, AlertTriangle } from "lucide-react";
+import { Zap } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
 
 interface TodaySignalSummaryProps {
   items: any[];
@@ -7,7 +9,7 @@ interface TodaySignalSummaryProps {
 
 /**
  * Summary bar shown at the top of the home page.
- * Displays counts of today's AI-analyzed signals.
+ * Displays counts of today's AI-analyzed signals (shadcn card + badge style).
  * Only renders when at least 1 item has been analyzed.
  */
 export default function TodaySignalSummary({ items }: TodaySignalSummaryProps) {
@@ -35,40 +37,48 @@ export default function TodaySignalSummary({ items }: TodaySignalSummaryProps) {
   return (
     <Link
       href="/analysis"
-      className="block mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 mt-2"
+      className="block mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 mb-6 no-underline"
     >
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200/60 dark:border-blue-800/40 rounded-xl px-4 py-3 hover:shadow-md transition-all cursor-pointer">
-        <div className="flex items-center gap-2 flex-wrap text-[12px] sm:text-[13px]">
-          <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-          <span className="text-muted-foreground">
+      <div className="group flex items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10 transition-all hover:shadow-md hover:ring-primary/40">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Zap className="h-4 w-4" />
+        </span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
+          <span className="text-[12px] sm:text-[13px] text-muted-foreground">
             {totalNews} 条快讯中，AI 识别{" "}
             <span className="font-semibold text-foreground">
               {analyzed.length} 条值得关注信号
             </span>
           </span>
-          <span className="text-muted-foreground">·</span>
           {criticalCount > 0 && (
-            <>
-              <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-              <span className="font-semibold text-red-600 dark:text-red-400">
-                {criticalCount} 条预警
-              </span>
-            </>
+            <Badge variant="destructive">{criticalCount} 预警</Badge>
           )}
           {significantCount > 0 && (
-            <span className="font-semibold text-orange-600 dark:text-orange-400">
-              {significantCount} 条重要
-            </span>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-orange-600 dark:text-orange-400",
+                "border-orange-200/70 dark:border-orange-800/40"
+              )}
+            >
+              {significantCount} 重要
+            </Badge>
           )}
           {moderateCount > 0 && (
-            <span className="font-semibold text-yellow-600 dark:text-yellow-400">
-              {moderateCount} 条关注
-            </span>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-yellow-600 dark:text-yellow-400",
+                "border-yellow-200/70 dark:border-yellow-800/40"
+              )}
+            >
+              {moderateCount} 关注
+            </Badge>
           )}
-          <span className="text-primary text-[11px] ml-auto shrink-0">
-            查看分析 →
-          </span>
         </div>
+        <span className="text-primary text-[11px] ml-auto shrink-0 transition-transform group-hover:translate-x-0.5">
+          查看分析 →
+        </span>
       </div>
     </Link>
   );

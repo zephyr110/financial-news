@@ -20,6 +20,7 @@ import ErrorBanner from "../components/ErrorBanner";
 import SearchBar from "../components/SearchBar";
 import SignalSearchResults from "../components/SignalSearchResults";
 import WatchlistPanel from "../components/WatchlistPanel";
+import ContentNav from "../components/ContentNav";
 import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db";
 import { useWatchedIndustries } from "../lib/useWatchedIndustries";
 import { safeParse } from "../lib/utils";
@@ -210,6 +211,20 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
   const hasData = items.length > 0;
 
+  // 内容导航：长页面快速定位（sticky + scroll-spy），区块随可用数据动态出现
+  const navItems = useMemo(() => {
+    const itemsArr: { id: string; label: string }[] = [{ id: "overview", label: "概览" }];
+    if (hasData) {
+      itemsArr.push({ id: "charts", label: "图表" });
+      if (sentimentBreakdown.length > 0) itemsArr.push({ id: "sentiment", label: "情感" });
+      if (trend.length >= 2) itemsArr.push({ id: "trend", label: "趋势" });
+    }
+    itemsArr.push({ id: "threads", label: "事件线索" });
+    itemsArr.push({ id: "backtest", label: "回测" });
+    itemsArr.push({ id: "timeline", label: isSearchActive ? "搜索结果" : "时间线" });
+    return itemsArr;
+  }, [hasData, sentimentBreakdown.length, trend.length, isSearchActive]);
+
   return (
     <>
       <Head>
@@ -219,6 +234,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       </Head>
 
       <SiteHeader onRefresh={doRefresh} refreshing={fetching} lastUpdated={null} />
+      <ContentNav items={navItems} />
       <SignalAlert items={watchedItems} />
 
       <div className="min-h-screen bg-background">
@@ -246,18 +262,20 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             className="mb-5"
           />
 
-          <AnalysisOverview
-            stats={stats}
-            items={watchedItems}
-            loading={fetching && items.length === 0}
-            filter={cardFilter}
-            onFilterChange={setCardFilter}
-          />
+          <div id="overview" className="scroll-mt-28">
+            <AnalysisOverview
+              stats={stats}
+              items={watchedItems}
+              loading={fetching && items.length === 0}
+              filter={cardFilter}
+              onFilterChange={setCardFilter}
+            />
+          </div>
 
           {/* Charts: 2-col grid + full-width trend (client-only to avoid hydration mismatch) */}
           {hasData && (
             <ClientOnly fallback={<div className="h-40 rounded-xl bg-muted/20 animate-pulse mb-6" />}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div id="charts" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 scroll-mt-28">
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs sm:text-sm font-medium text-foreground">
@@ -330,7 +348,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
               {/* Sentiment distribution (full width below the 2-col grid) */}
               {sentimentBreakdown.length > 0 && (
-                <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                <div id="sentiment" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
                   <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
                     情感分布
                   </h3>
@@ -339,7 +357,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               )}
 
               {trend.length >= 2 && (
-                <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                <div id="trend" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                     <h3 className="text-xs sm:text-sm font-medium text-foreground">
                       行业热度趋势
@@ -353,10 +371,15 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             </ClientOnly>
           )}
 
-          <EventThreadList threads={filteredThreads} />
+          <div id="threads" className="scroll-mt-28">
+            <EventThreadList threads={filteredThreads} />
+          </div>
 
-          <BacktestPanel />
+          <div id="backtest" className="scroll-mt-28">
+            <BacktestPanel />
+          </div>
 
+          <div id="timeline" className="scroll-mt-28">
           {isSearchActive ? (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -396,6 +419,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               />
             </>
           )}
+          </div>
 
           {/* 页脚：免责声明 + P2.5 验证报告入口（内部工具） */}
           <div className="mt-10 pt-6 border-t border-border flex items-center justify-between flex-wrap gap-2">

@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import { MessageSquareText, Send, RotateCcw, Wrench, AlertCircle, Loader2 } from "lucide-react";
+import { MessageSquareText, Send, RotateCcw, Wrench, Loader2 } from "lucide-react";
 import SiteHeader from "../components/SiteHeader";
+import { Button } from "../components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "../components/ui/alert";
+import { cn } from "@/lib/utils";
 
 interface ToolCallInfo {
   name: string;
@@ -17,6 +20,13 @@ interface ChatItem {
 }
 
 const SESSION_STORAGE_KEY = "agent-session-id";
+
+// 空状态建议问题：点击直接发送
+const SUGGESTIONS = [
+  "存储涨价链条现在到哪个阶段了？",
+  "今天有哪些政策信号？",
+  "半导体行业近一周信号强度如何？",
+];
 
 export default function AgentPage() {
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -54,132 +64,139 @@ export default function AgentPage() {
     }
   }, []);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-    setInput("");
-    setError(null);
-    setLoading(true);
+  const submitMessage = useCallback(
+    async (textOverride?: string) => {
+      const text = (textOverride ?? input).trim();
+      if (!text || loading) return;
+      setInput("");
+      setError(null);
+      setLoading(true);
 
-    // 乐观渲染用户消息（id 在闭包内固定，失败时按同一 id 移除）
-    const optimisticId = `local-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: text }]);
+      // 乐观渲染用户消息（id 在闭包内固定，失败时按同一 id 移除）
+      const optimisticId = `local-${Date.now()}`;
+      setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: text }]);
 
-    try {
-      const res = await fetch("/api/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId ?? undefined, message: text, stream: true }),
-      });
+      try {
+        const res = await fetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sessionId ?? undefined, message: text, stream: true }),
+        });
 
-      // 非流式失败响应（400/503/500）→ 与旧逻辑一致处理
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        // 服务端错误会携带已创建的 sessionId：保留它，失败重试续用同一会话而非创建孤儿会话
-        if (data.sessionId) {
-          setSessionId(data.sessionId);
-          persistSession(data.sessionId);
+        // 非流式失败响应（400/503/500）→ 与旧逻辑一致处理
+        if (!res.ok || !res.body) {
+          const data = await res.json().catch(() => ({}));
+          // 服务端错误会携带已创建的 sessionId：保留它，失败重试续用同一会话而非创建孤儿会话
+          if (data.sessionId) {
+            setSessionId(data.sessionId);
+            persistSession(data.sessionId);
+          }
+          if (res.status === 503) {
+            setError("研究助手未配置：请设置 LLM_API_KEY 环境变量（或 DEEPSEEK_API_KEY）。");
+          } else {
+            setError(data.error || `请求失败（HTTP ${res.status}）`);
+          }
+          // 移除乐观渲染的 user 消息，让用户重试
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+          return;
         }
-        if (res.status === 503) {
-          setError("研究助手未配置：请设置 LLM_API_KEY 环境变量（或 DEEPSEEK_API_KEY）。");
-        } else {
-          setError(data.error || `请求失败（HTTP ${res.status}）`);
+
+        // ── SSE 流式读取：tool_start → delta… → done ──
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamMsgId: string | null = null;
+        let streamText = "";
+        let toolLogs: ChatItem["toolLog"] = [];
+        let doneSessionId: number | null = null;
+
+        const handleEvent = (event: string, payload: any) => {
+          if (event === "tool_start") {
+            // 工具调用 JSON 的 delta 已累积在流式消息中 → 移除并替换为工具气泡
+            if (streamMsgId) {
+              setMessages((prev) => prev.filter((m) => m.id !== streamMsgId));
+              streamMsgId = null;
+              streamText = "";
+            }
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `tool-${Date.now()}-${payload.tool}`,
+                role: "assistant" as const,
+                content: "",
+                toolCall: { name: payload.tool, args: payload.args || {} } as ToolCallInfo,
+              },
+            ]);
+          } else if (event === "delta") {
+            streamText += payload.text || "";
+            if (!streamMsgId) {
+              streamMsgId = `stream-${Date.now()}`;
+              setMessages((prev) => [...prev, { id: streamMsgId!, role: "assistant", content: "" }]);
+            }
+            setMessages((prev) =>
+              prev.map((m) => (m.id === streamMsgId ? { ...m, content: streamText } : m))
+            );
+          } else if (event === "done") {
+            doneSessionId = payload.sessionId;
+            toolLogs = payload.toolLog || [];
+            const reply = streamText || payload.reply || "";
+            // 工具日志附加到最终回复气泡（若无 delta 累积则新建消息）
+            setMessages((prev) =>
+              streamMsgId
+                ? prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
+                : [...prev, { id: `reply-${Date.now()}`, role: "assistant" as const, content: reply, toolLog: toolLogs }]
+            );
+          } else if (event === "error") {
+            setError(payload.error || "研究助手暂时不可用，请稍后再试");
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+          for (const block of blocks) {
+            let evt = "";
+            let data = "";
+            for (const line of block.split("\n")) {
+              if (line.startsWith("event:")) evt = line.slice(6).trim();
+              else if (line.startsWith("data:")) data = line.slice(5).trim();
+            }
+            if (!evt || !data) continue;
+            try {
+              handleEvent(evt, JSON.parse(data));
+            } catch {
+              // 忽略无法解析的事件块
+            }
+          }
         }
-        // 移除乐观渲染的 user 消息，让用户重试
+
+        if (doneSessionId) {
+          setSessionId(doneSessionId);
+          persistSession(doneSessionId);
+        } else if (streamMsgId) {
+          // 流中断（超时/网络断开）但已有内容：保留已显示的部分
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
+          );
+        }
+      } catch (e) {
+        console.error("Agent request failed:", e);
+        setError("网络错误，请稍后重试");
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-        return;
+      } finally {
+        setLoading(false);
+        inputRef.current?.focus();
       }
+    },
+    [input, loading, sessionId, persistSession]
+  );
 
-      // ── SSE 流式读取：tool_start → delta… → done ──
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let streamMsgId: string | null = null;
-      let streamText = "";
-      let toolLogs: ChatItem["toolLog"] = [];
-      let doneSessionId: number | null = null;
-
-      const handleEvent = (event: string, payload: any) => {
-        if (event === "tool_start") {
-          // 工具调用 JSON 的 delta 已累积在流式消息中 → 移除并替换为工具气泡
-          if (streamMsgId) {
-            setMessages((prev) => prev.filter((m) => m.id !== streamMsgId));
-            streamMsgId = null;
-            streamText = "";
-          }
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `tool-${Date.now()}-${payload.tool}`,
-              role: "assistant" as const,
-              content: "",
-              toolCall: { name: payload.tool, args: payload.args || {} } as ToolCallInfo,
-            },
-          ]);
-        } else if (event === "delta") {
-          streamText += payload.text || "";
-          if (!streamMsgId) {
-            streamMsgId = `stream-${Date.now()}`;
-            setMessages((prev) => [...prev, { id: streamMsgId!, role: "assistant", content: "" }]);
-          }
-          setMessages((prev) =>
-            prev.map((m) => (m.id === streamMsgId ? { ...m, content: streamText } : m))
-          );
-        } else if (event === "done") {
-          doneSessionId = payload.sessionId;
-          toolLogs = payload.toolLog || [];
-          const reply = streamText || payload.reply || "";
-          // 工具日志附加到最终回复气泡（若无 delta 累积则新建消息）
-          setMessages((prev) =>
-            streamMsgId
-              ? prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
-              : [...prev, { id: `reply-${Date.now()}`, role: "assistant" as const, content: reply, toolLog: toolLogs }]
-          );
-        } else if (event === "error") {
-          setError(payload.error || "研究助手暂时不可用，请稍后再试");
-        }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split("\n\n");
-        buffer = blocks.pop() || "";
-        for (const block of blocks) {
-          let evt = "";
-          let data = "";
-          for (const line of block.split("\n")) {
-            if (line.startsWith("event:")) evt = line.slice(6).trim();
-            else if (line.startsWith("data:")) data = line.slice(5).trim();
-          }
-          if (!evt || !data) continue;
-          try {
-            handleEvent(evt, JSON.parse(data));
-          } catch {
-            // 忽略无法解析的事件块
-          }
-        }
-      }
-
-      if (doneSessionId) {
-        setSessionId(doneSessionId);
-        persistSession(doneSessionId);
-      } else if (streamMsgId) {
-        // 流中断（超时/网络断开）但已有内容：保留已显示的部分
-        setMessages((prev) =>
-          prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
-        );
-      }
-    } catch (e) {
-      console.error("Agent request failed:", e);
-      setError("网络错误，请稍后重试");
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-    } finally {
-      setLoading(false);
-      inputRef.current?.focus();
-    }
-  }, [input, loading, sessionId, persistSession]);
+  const send = useCallback(() => {
+    void submitMessage();
+  }, [submitMessage]);
 
   const newSession = useCallback(() => {
     setSessionId(null);
@@ -199,6 +216,8 @@ export default function AgentPage() {
     [send]
   );
 
+  const isEmpty = messages.length === 0 && !loading;
+
   return (
     <>
       <Head>
@@ -211,38 +230,68 @@ export default function AgentPage() {
 
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-[720px] px-4 sm:px-6 pb-12">
-          <div className="pt-8 pb-4 flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
-              基于真实信号数据的问答 — 政策 · 行业 · 事件线索
-            </h2>
-            <button
-              type="button"
-              onClick={newSession}
-              className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> 新会话
-            </button>
+          {/* 页头 */}
+          <div className="pt-8 pb-5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+                <MessageSquareText className="h-5 w-5 text-primary" />
+                研究助手
+              </h2>
+              <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
+                基于真实信号数据的问答 — 政策 · 行业 · 事件线索
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={newSession}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              新会话
+            </Button>
           </div>
 
           {error && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>请求失败</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* 对话区 */}
-          <div className="rounded-xl border bg-card">
-            <div className="p-4 sm:p-6 min-h-[420px] max-h-[60vh] overflow-y-auto space-y-4">
-              {messages.length === 0 && !loading && (
-                <div className="text-center py-12 text-sm text-muted-foreground space-y-2">
-                  <MessageSquareText className="h-8 w-8 mx-auto opacity-40" />
-                  <p>试试问：</p>
-                  <p className="text-xs space-y-1">
-                    「存储涨价链条现在到哪个阶段了？」<br />
-                    「今天有哪些政策信号？」<br />
-                    「半导体行业近一周信号强度如何？」
+          <div className="rounded-xl border bg-card shadow-sm">
+            <style jsx global>{`
+              .agent-scroll::-webkit-scrollbar { width: 6px; }
+              .agent-scroll::-webkit-scrollbar-thumb {
+                background: var(--border);
+                border-radius: 3px;
+              }
+              .agent-scroll::-webkit-scrollbar-track { background: transparent; }
+            `}</style>
+
+            <div className="agent-scroll p-4 sm:p-6 min-h-[420px] max-h-[60vh] overflow-y-auto space-y-5">
+              {isEmpty && (
+                <div className="text-center py-10">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                    <MessageSquareText className="h-6 w-6" />
+                  </span>
+                  <p className="text-sm text-foreground font-medium">想研究点什么？</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    可以试试这些方向，或直接输入你的问题
                   </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+                    {SUGGESTIONS.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => void submitMessage(q)}
+                        disabled={loading}
+                        className={cn(
+                          "rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground",
+                          "transition-colors hover:text-foreground hover:border-primary/50 hover:bg-accent",
+                          "disabled:opacity-40"
+                        )}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -256,31 +305,50 @@ export default function AgentPage() {
                 }
                 if (m.toolCall) {
                   return (
-                    <div key={m.id} className="flex justify-start">
-                      <div className="max-w-[85%] inline-flex items-center gap-1.5 rounded-lg border bg-accent/60 px-3 py-1.5 text-xs text-muted-foreground">
-                        <Wrench className="h-3 w-3" />
-                        调用工具 {m.toolCall.name}
-                      </div>
+                    <div key={m.id} className="flex justify-start pl-10">
+                      <details className="group/tool max-w-[85%] rounded-lg border bg-accent/50 open:bg-accent/70">
+                        <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none">
+                          <Wrench className="h-3.5 w-3.5 shrink-0" />
+                          <span className="font-medium text-foreground">调用工具 {m.toolCall.name}</span>
+                          <span className="text-muted-foreground/70">执行中…</span>
+                        </summary>
+                        <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-[10px] text-muted-foreground whitespace-pre-wrap">
+                          {JSON.stringify(m.toolCall.args, null, 2)}
+                        </pre>
+                      </details>
                     </div>
                   );
                 }
                 const isUser = m.role === "user";
                 return (
-                  <div key={m.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                  <div key={m.id} className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
+                    {!isUser && (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
+                        <MessageSquareText className="h-4 w-4" />
+                      </span>
+                    )}
                     <div
-                      className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      className={cn(
+                        "max-w-[85%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
                         isUser
                           ? "bg-primary text-primary-foreground"
                           : "bg-accent/70 text-foreground"
-                      }`}
+                      )}
                     >
                       {m.content}
                       {m.toolLog && m.toolLog.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-foreground/10 space-y-1">
+                        <div className="mt-2.5 pt-2.5 border-t border-foreground/10 space-y-1.5">
                           {m.toolLog.map((t, i) => (
-                            <div key={i} className="flex items-center gap-1.5 text-xs opacity-80">
-                              <Wrench className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{t.name}</span>
+                            <div key={i} className="flex items-center gap-1.5 text-xs">
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                                  t.ok ? "bg-emerald-500" : "bg-red-500"
+                                )}
+                                aria-hidden
+                              />
+                              <Wrench className="h-3 w-3 shrink-0 opacity-70" />
+                              <span className="truncate font-medium">{t.name}</span>
                               <span className="truncate text-muted-foreground">{t.summary}</span>
                             </div>
                           ))}
@@ -292,7 +360,10 @@ export default function AgentPage() {
               })}
 
               {loading && (
-                <div className="flex justify-start">
+                <div className="flex justify-start gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
+                    <MessageSquareText className="h-4 w-4" />
+                  </span>
                   <div className="inline-flex items-center gap-2 rounded-xl bg-accent/70 px-3.5 py-2.5 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在研究…
@@ -313,17 +384,12 @@ export default function AgentPage() {
                   placeholder="询问政策影响、行业趋势、事件进展…（Enter 发送，Shift+Enter 换行）"
                   rows={1}
                   maxLength={2000}
-                  className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[42px] max-h-[160px]"
+                  className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 min-h-[42px] max-h-[160px] transition-colors"
                 />
-                <button
-                  type="button"
-                  onClick={send}
-                  disabled={loading || !input.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40 transition-opacity"
-                >
+                <Button onClick={send} disabled={loading || !input.trim()} className="shrink-0">
                   <Send className="h-4 w-4" />
                   <span className="hidden sm:inline">发送</span>
-                </button>
+                </Button>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground/70">
                 AI 输出基于历史信号数据整理，仅供参考，不构成投资建议
