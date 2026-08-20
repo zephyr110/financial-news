@@ -18,7 +18,7 @@ const badgeVariants = cva(
   }
 );
 
-function Badge({ className, variant = "default", ...props }) {
+function Badge({ className = undefined, variant = "default", ...props }) {
   return (
     <span
       data-slot="badge"

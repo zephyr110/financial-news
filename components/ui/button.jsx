@@ -28,7 +28,7 @@ const buttonVariants = cva(
   }
 );
 
-function Button({ className, variant = "default", size = "default", ...props }) {
+function Button({ className = undefined, variant = "default", size = "default", ...props }) {
   return (
     <button
       data-slot="button"

@@ -5,6 +5,8 @@ import SiteHeader from "../components/SiteHeader";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
 import TodaySignalSummary from "../components/TodaySignalSummary";
+import { buttonVariants } from "../components/ui/button";
+import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
@@ -172,21 +174,46 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
         </div>
 
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
-          {/* Page intro */}
-          <div className="pt-8 pb-5">
-            <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
-              7×24 全球财经快讯，AI 智能筛选高价值信号
-            </h2>
-            {lastUpdated && (
-              <p className="mt-1 text-[11px] text-muted-foreground/60">
-                更新于{" "}
-                {lastUpdated.toLocaleTimeString("zh-CN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
+          {/* Hero */}
+          <div className="pt-8 pb-6 flex items-end justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+                实时财经快讯
+              </h2>
+              <p className="mt-1 text-[13px] sm:text-sm text-muted-foreground">
+                7×24 全球快讯 · AI 智能筛选高价值信号
               </p>
-            )}
+              <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/70">
+                <span className="relative flex h-2 w-2" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                信号流在线
+                {lastUpdated && (
+                  <>
+                    <span aria-hidden>·</span>
+                    更新于{" "}
+                    {lastUpdated.toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={doRefresh}
+              disabled={fetching}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "text-xs sm:text-sm shrink-0"
+              )}
+            >
+              <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
+              {fetching ? "更新中" : "刷新"}
+            </button>
           </div>
 
           <ErrorBanner message={error} />
@@ -196,7 +223,7 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
           {todayItems.length > 0 ? (
             <NewsList todayItems={todayItems} pastDates={pastDates} />
           ) : (
-            !error && <EmptyState />
+            !error && <EmptyState onRefresh={doRefresh} />
           )}
         </div>
       </div>

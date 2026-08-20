@@ -1,6 +1,8 @@
 import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { useEffect, useState } from "react";
+import { buttonVariants } from "./ui/button";
+import { cn } from "@/lib/utils";
 
 export default function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -15,7 +17,7 @@ export default function ThemeToggle() {
       <button
         type="button"
         disabled
-        className="p-2 rounded-md text-muted-foreground"
+        className={buttonVariants({ variant: "ghost", size: "icon" })}
         aria-label="切换主题"
       >
         <span className="h-5 w-5 block" />
@@ -33,7 +35,10 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={cycleTheme}
-      className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      className={cn(
+        buttonVariants({ variant: "ghost", size: "icon" }),
+        "text-muted-foreground"
+      )}
       aria-label="切换主题"
       title="切换主题"
     >

@@ -20,7 +20,7 @@ const alertVariants = cva(
 )
 
 function Alert({
-  className,
+  className = undefined,
   variant,
   ...props
 }) {
@@ -34,7 +34,7 @@ function Alert({
 }
 
 function AlertTitle({
-  className,
+  className = undefined,
   ...props
 }) {
   return (
@@ -49,7 +49,7 @@ function AlertTitle({
 }
 
 function AlertDescription({
-  className,
+  className = undefined,
   ...props
 }) {
   return (
@@ -64,7 +64,7 @@ function AlertDescription({
 }
 
 function AlertAction({
-  className,
+  className = undefined,
   ...props
 }) {
   return (
