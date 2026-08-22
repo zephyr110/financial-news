@@ -14,7 +14,7 @@ import { LLM_CONFIG } from '../llm/config';
 import type { AgentTurnResult } from './types';
 import { getTool, buildToolPrompt } from './tools';
 import { loadAgentContext } from './session';
-import { extractJson, repairJson, formatFinalAnswer, validateToolArgs } from './format';
+import { looksLikeJson, parseJsonLike, repairJson, formatFinalAnswer, validateToolArgs } from './format';
 
 /** 单轮最大步数（LLM 调用次数），防止失控循环 */
 const MAX_STEPS = 8;
@@ -37,28 +37,23 @@ export const AGENT_SYSTEM_PROMPT = `你是一个A股政策-行业研究助手（
 - 若工具没有数据，明确说明数据缺口，不要编造`;
 
 export function tryParseToolCall(content: string): { tool?: string; args?: Record<string, unknown> } | null {
-  // 兼容 ```json 代码块包裹
+  // 兼容 ```json 代码块包裹；协议要求工具调用是"严格 JSON"，散文中的 JSON 引用不解析
   const trimmed = (content || '').trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidates = [fence ? fence[1].trim() : null, trimmed].filter(Boolean) as string[];
-  for (const raw of candidates) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && typeof parsed.tool === 'string') {
-        return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
-      }
-    } catch {
-      // 落修复路径
-    }
+  const parsed = parseJsonLike(trimmed);
+  if (parsed && typeof parsed === 'object' && typeof (parsed as { tool?: unknown }).tool === 'string') {
+    const p = parsed as { tool: string; args?: unknown };
+    return { tool: p.tool, args: p.args && typeof p.args === 'object' ? (p.args as Record<string, unknown>) : {} };
   }
   // 后校正：模型输出的 JSON 可能带尾逗号/单引号/未引号 key 或截断。
-  // 仅当修复后解析出 tool 字段才视为工具调用，避免误伤纯文本回答。
+  // 仅对"JSON 形状"的输出做修复（looksLikeJson 门禁）——从散文回答里提取
+  // {"tool":...} 会被误执行为工具调用；修复后解析出 tool 字段才视为工具调用。
+  if (!looksLikeJson(trimmed)) return null;
   const repaired = repairJson(trimmed);
   if (repaired !== null && repaired !== trimmed) {
     try {
-      const parsed = JSON.parse(repaired);
+      const parsed = JSON.parse(repaired) as { tool?: unknown; args?: unknown };
       if (parsed && typeof parsed === 'object' && typeof parsed.tool === 'string') {
-        return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+        return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? (parsed.args as Record<string, unknown>) : {} };
       }
     } catch {
       // 放弃
@@ -159,6 +154,15 @@ export async function runAgentTurn(input: RunTurnOptions): Promise<AgentTurnResu
 
       const toolCall = tryParseToolCall(contentText);
       if (!toolCall?.tool) {
+        // 工具调用形状但解析失败（截断/损坏的 JSON）→ 回喂模型重试，绝不让损坏的
+        // JSON 落最终回答出口（否则用户直接看到原始截断文本，如 {"tool":...,"args":{"）
+        if (looksLikeJson(contentText) && parseJsonLike(contentText) === null) {
+          const feedback = '【格式错误】你的输出是 JSON 形状但无法解析为合法工具调用（可能被截断）。请重新输出严格 JSON：{"tool":"<工具名>","args":{...}}；或改为输出纯文本最终回答。';
+          turnMessages.push({ role: 'user', content: feedback });
+          // 以 system 角色持久化：历史重放时前端渲染为居中提示，而非伪用户气泡
+          await appendAgentMessage(sessionId, 'system', feedback);
+          continue;
+        }
         // 最终回答：确定性出口管道（截断检测 → markdown 修复 → 截断诚实标注）
         const formatted = formatFinalAnswer(contentText);
         reply = formatted.text;
@@ -172,7 +176,8 @@ export async function runAgentTurn(input: RunTurnOptions): Promise<AgentTurnResu
       if (!tool) {
         const feedback = `【工具不存在】工具 "${toolCall.tool}" 未注册。可用工具：${buildToolPrompt().split('\n').map((l) => l.split(':')[0]).join(', ')}。请重试。`;
         turnMessages.push({ role: 'user', content: feedback });
-        await appendAgentMessage(sessionId, 'user', feedback);
+        // system 角色持久化：反馈是系统级纠正，不应在历史重放中伪装成用户消息
+        await appendAgentMessage(sessionId, 'system', feedback);
         continue;
       }
 
@@ -181,7 +186,8 @@ export async function runAgentTurn(input: RunTurnOptions): Promise<AgentTurnResu
       if (argError) {
         const feedback = `【参数错误】工具 "${tool.name}" 参数无效：${argError}。请按参数 schema 重新构造：{"tool":"${tool.name}","args":{...}}。`;
         turnMessages.push({ role: 'user', content: feedback });
-        await appendAgentMessage(sessionId, 'user', feedback);
+        // system 角色持久化：反馈是系统级纠正，不应在历史重放中伪装成用户消息
+        await appendAgentMessage(sessionId, 'system', feedback);
         continue;
       }
 

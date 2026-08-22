@@ -63,40 +63,12 @@ export default function LoginPage() {
       </Head>
 
       <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10">
-        {/* 背景装饰层（项目主题：信号网格 + 趋势线 + 光晕） */}
+        {/* 背景装饰层（极简光晕：柔和、克制，焦点在卡片） */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          {/* 细网格（数据表盘意象），径向遮罩聚焦中部 */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.4)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.4)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_38%,black_25%,transparent_100%)]" />
-          {/* 品牌色光晕 */}
-          <div className="absolute -top-28 left-1/2 h-80 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-          <div className="absolute -bottom-24 left-1/4 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="absolute -bottom-20 right-1/4 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-          {/* 抽象趋势线：主色线 + 渐变面积（上升信号意象） */}
-          <svg
-            className="absolute inset-x-0 bottom-0 h-44 w-full text-primary"
-            viewBox="0 0 1440 176"
-            fill="none"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <linearGradient id="login-area-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="currentColor" stopOpacity="0.14" />
-                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M0 128 C 90 120, 150 92, 230 100 S 360 64, 450 78 S 580 36, 670 52 S 800 20, 890 34 S 1020 8, 1110 22 S 1280 2, 1360 10 L 1440 6 L 1440 176 L 0 176 Z"
-              fill="url(#login-area-fill)"
-            />
-            <path
-              d="M0 128 C 90 120, 150 92, 230 100 S 360 64, 450 78 S 580 36, 670 52 S 800 20, 890 34 S 1020 8, 1110 22 S 1280 2, 1360 10 L 1440 6"
-              stroke="currentColor"
-              strokeOpacity="0.35"
-              strokeWidth="1.5"
-            />
-            {/* 端点信号点 */}
-            <circle cx="1440" cy="6" r="3" fill="currentColor" stroke="hsl(var(--background))" strokeWidth="2" />
-          </svg>
+          {/* 顶部品牌色大光晕 */}
+          <div className="absolute -top-32 left-1/2 h-[30rem] w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+          {/* 底部对角冷色光晕 */}
+          <div className="absolute -right-24 -bottom-32 h-[26rem] w-[26rem] rounded-full bg-blue-500/10 blur-3xl" />
         </div>
 
         <div className="relative w-full max-w-sm space-y-8">

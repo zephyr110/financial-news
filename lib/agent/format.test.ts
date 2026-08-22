@@ -6,6 +6,8 @@ import {
   detectTruncation,
   formatFinalAnswer,
   validateToolArgs,
+  looksLikeJson,
+  parseJsonLike,
 } from './format';
 
 describe('extractJson', () => {
@@ -70,6 +72,53 @@ describe('repairJson', () => {
   it('修复后仍无法解析返回 null（如类型错乱）', () => {
     expect(repairJson('{a: }')).toBeNull();
   });
+
+  it('修复不改写字符串内容（结构正则感知字符串）', () => {
+    const fixed = repairJson('{"a": "含,逗号与}大括号", "b": 1,}');
+    expect(JSON.parse(fixed as string)).toEqual({ a: '含,逗号与}大括号', b: 1 });
+  });
+
+  it('未加引号的 key 修复不碰字符串内部', () => {
+    const fixed = repairJson('{"msg": "see, k: 3", foo: 1}');
+    expect(JSON.parse(fixed as string)).toEqual({ msg: 'see, k: 3', foo: 1 });
+  });
+
+  it('截断于 key 冒号后：补 null 占位', () => {
+    const fixed = repairJson('{"tool":"get_industry_heatmap","args":{"hoursBack":');
+    expect(JSON.parse(fixed as string)).toEqual({ tool: 'get_industry_heatmap', args: { hoursBack: null } });
+  });
+
+  it('截断于对象键引号中间：补 {"":null} 占位', () => {
+    const fixed = repairJson('{"tool":"get_industry_heatmap","args":{"');
+    expect(JSON.parse(fixed as string)).toEqual({ tool: 'get_industry_heatmap', args: { '': null } });
+  });
+
+  it('截断于值字符串中间：补闭合引号', () => {
+    const fixed = repairJson('{"a": "未闭合');
+    expect(JSON.parse(fixed as string)).toEqual({ a: '未闭合' });
+  });
+});
+
+describe('looksLikeJson / parseJsonLike', () => {
+  it('纯 JSON 判形状', () => {
+    expect(looksLikeJson('{"tool":"x"}')).toBe(true);
+    expect(looksLikeJson('["a"]')).toBe(true);
+  });
+
+  it('围栏包裹的 JSON 判形状', () => {
+    expect(looksLikeJson('```json\n{"tool":"x"}\n```')).toBe(true);
+  });
+
+  it('散文不判形状（引用 JSON 也不判）', () => {
+    expect(looksLikeJson('存储处于发酵阶段。')).toBe(false);
+    expect(looksLikeJson('结果如下：{"tool":"x"} 请分析。')).toBe(false);
+    expect(looksLikeJson('```js\nconst a = 1;\n```')).toBe(false);
+  });
+
+  it('parseJsonLike：围栏剥离后解析', () => {
+    expect(parseJsonLike('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+    expect(parseJsonLike('这是散文')).toBeNull();
+  });
 });
 
 describe('fixMarkdown', () => {
@@ -77,8 +126,18 @@ describe('fixMarkdown', () => {
     expect(fixMarkdown('```js\nconst a = 1;')).toBe('```js\nconst a = 1;\n```');
   });
 
-  it('清除行尾空白（保留代码块内缩进）', () => {
-    expect(fixMarkdown('标题  \n  缩进内容  ')).toBe('标题\n  缩进内容');
+  it('保留硬换行（2+ 尾随空白），只剥单个软换行空白', () => {
+    expect(fixMarkdown('标题  \n下一行')).toBe('标题  \n下一行');
+    expect(fixMarkdown('标题 \n下一行')).toBe('标题\n下一行');
+  });
+
+  it('不清除代码块内的行尾空白', () => {
+    expect(fixMarkdown('```js\nconst a = 1;  \n```')).toBe('```js\nconst a = 1;  \n```');
+  });
+
+  it('压缩围栏外连续空行，保留围栏内空行', () => {
+    expect(fixMarkdown('a\n\n\n\nb')).toBe('a\n\nb');
+    expect(fixMarkdown('```text\n第1行\n\n\n\n第5行\n```')).toBe('```text\n第1行\n\n\n\n第5行\n```');
   });
 
   it('压缩 3+ 连续空行', () => {
@@ -125,6 +184,18 @@ describe('detectTruncation', () => {
 
   it('末尾代码块语言标记判截断', () => {
     expect(detectTruncation('示例：\n```python')).toBe(true);
+  });
+
+  it('引用 JSON 的回答不误判截断', () => {
+    expect(detectTruncation('模型输出了 {"tool":"get_industry_heatmap","args":{}}，但显示异常。')).toBe(false);
+  });
+
+  it('代码块内不平衡括号不误判截断', () => {
+    expect(detectTruncation('```js\nif (x) {\n  y();\n}\n```\n完')).toBe(false);
+  });
+
+  it('以闭合围栏结尾的完整回答不误判截断', () => {
+    expect(detectTruncation('示例：\n```js\nconst a = 1;\n```')).toBe(false);
   });
 });
 

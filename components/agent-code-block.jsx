@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 /** 递归提取代码块纯文本（供复制按钮用）。 */
@@ -20,6 +20,10 @@ function extractText(node) {
  */
 export default function AgentCodeBlock({ lang, children }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef(null);
+
+  // 卸载时清理"已复制"计时器，避免组件卸载后 setState（React 18+ 严格模式下的泄漏告警）
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const copy = async () => {
     const text = extractText(children).trim();
@@ -27,7 +31,8 @@ export default function AgentCodeBlock({ lang, children }) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
     } catch {
       // 剪贴板不可用（非安全上下文）时静默
     }
