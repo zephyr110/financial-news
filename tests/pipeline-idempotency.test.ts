@@ -136,10 +136,10 @@ describe('backtest 幂等（UNIQUE(signal_date, industry) + INSERT OR REPLACE）
     });
     void today;
 
-    await runBacktest(90);
+    await runBacktest(30);
     const first = await db.execute('SELECT COUNT(*) as n FROM backtest_result');
     const before = Number(first.rows[0].n);
-    await runBacktest(90);
+    await runBacktest(30);
     const second = await db.execute('SELECT COUNT(*) as n FROM backtest_result');
     expect(Number(second.rows[0].n)).toBe(before);
 

@@ -6,7 +6,7 @@ import { defaultBatchId, withPipelineRun, isJobFresh } from '../../../lib/pipeli
  * Phase 4: Fetch market data + run backtest.
  * GET /api/cron/fetch-market?batch=<optional>
  *
- * 节流：回测是全量重建（90 天窗口 × 全市场指数，单次数万行读取）。
+ * 节流：回测是全量重建（30 天窗口 × 全市场指数，单次数万行读取）。
  * 调度频率（QStash 30 分钟）远高于数据需要，距上次成功 < 6h 直接跳过，
  * 避免行读取配额被高频调度推爆。行情数据本身 6h 更新一次也足够。
  */

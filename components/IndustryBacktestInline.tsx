@@ -63,7 +63,7 @@ export default function IndustryBacktestInline({
         }}
         role={onViewDetail ? "button" : undefined}
         tabIndex={onViewDetail ? 0 : undefined}
-        title={`${match.industry} · 近90天回测 · ${tierProgress(match.samples)}`}
+        title={`${match.industry} · 近30天回测 · ${tierProgress(match.samples)}`}
       >
         <Loader2 className="h-3 w-3 shrink-0 animate-pulse" />
         <span className="font-medium">{match.industry}</span>
@@ -96,7 +96,7 @@ export default function IndustryBacktestInline({
       }}
       role={onViewDetail ? "button" : undefined}
       tabIndex={onViewDetail ? 0 : undefined}
-      title={`${match.industry} · 近90天回测 · ${match.samples} 个样本${isReference ? ` · ${TIER_LABELS.reference}` : ""}`}
+      title={`${match.industry} · 近30天回测 · ${match.samples} 个样本${isReference ? ` · ${TIER_LABELS.reference}` : ""}`}
     >
       <BarChart3 className="h-3 w-3 shrink-0" />
       <span className="font-medium">{match.industry}</span>
