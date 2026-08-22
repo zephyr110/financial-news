@@ -44,7 +44,7 @@ export default function TodaySignalSummary({ items }: TodaySignalSummaryProps) {
           <Zap className="h-4 w-4" />
         </span>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
-          <span className="text-[12px] sm:text-[13px] text-muted-foreground">
+          <span className="text-sm text-muted-foreground">
             {totalNews} 条快讯中，AI 识别{" "}
             <span className="font-semibold text-foreground">
               {analyzed.length} 条值得关注信号
@@ -76,7 +76,7 @@ export default function TodaySignalSummary({ items }: TodaySignalSummaryProps) {
             </Badge>
           )}
         </div>
-        <span className="text-primary text-[11px] ml-auto shrink-0 transition-transform group-hover:translate-x-0.5">
+        <span className="text-primary text-xs ml-auto shrink-0 transition-transform group-hover:translate-x-0.5">
           查看分析 →
         </span>
       </div>

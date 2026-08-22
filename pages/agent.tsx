@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import { MessageSquareText, Send, RotateCcw, Wrench, Loader2 } from "lucide-react";
-import SiteHeader from "../components/SiteHeader";
+import { MessageSquareText, Send, Wrench, Loader2, Bot } from "lucide-react";
+import AppShell from "../components/app-shell";
+import SessionSidebarGroup from "../components/SessionSidebarGroup";
 import { Button } from "../components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "../components/ui/alert";
+import { Textarea } from "../components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface ToolCallInfo {
@@ -19,7 +21,44 @@ interface ChatItem {
   toolLog?: { name: string; args: Record<string, unknown>; ok: boolean; summary: string }[];
 }
 
+interface SessionSummary {
+  id: number;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const SESSION_STORAGE_KEY = "agent-session-id";
+
+/**
+ * 服务端消息（agent_message.meta）→ 前端 ChatItem：
+ * - assistant 消息带 meta.toolCall → 工具调用卡片
+ * - user 的内部工具结果消息（【工具 X 结果】）→ 附加为上一个工具卡片的 toolLog 摘要
+ * - 其余按原文渲染
+ */
+function historyToChatItems(rows: any[]): ChatItem[] {
+  const out: ChatItem[] = [];
+  for (const r of rows) {
+    if (r.role === "user" && r.content.startsWith("【工具")) {
+      const last = out[out.length - 1];
+      if (last?.toolCall && r.meta?.toolResult) {
+        last.toolLog = [
+          {
+            name: r.meta.toolResult.name,
+            args: {},
+            ok: r.meta.toolResult.ok,
+            summary: String(r.meta.toolResult.content || "").slice(0, 60),
+          },
+        ];
+      }
+      continue;
+    }
+    const item: ChatItem = { id: `hist-${r.id}`, role: r.role, content: r.content };
+    if (r.meta?.toolCall) item.toolCall = r.meta.toolCall;
+    out.push(item);
+  }
+  return out;
+}
 
 // 空状态建议问题：点击直接发送
 const SUGGESTIONS = [
@@ -34,6 +73,9 @@ export default function AgentPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [query, setQuery] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -45,16 +87,6 @@ export default function AgentPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // 刷新后恢复上次会话：服务端保留完整上下文，续聊不另起孤儿会话
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (saved && /^\d+$/.test(saved)) setSessionId(Number(saved));
-    } catch {
-      // localStorage 不可用（隐私模式等）时静默降级
-    }
-  }, []);
-
   const persistSession = useCallback((id: number | null) => {
     try {
       if (id == null) localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -63,6 +95,54 @@ export default function AgentPage() {
       // 静默降级
     }
   }, []);
+
+  // 会话列表（失败静默：侧栏留空即可，不影响主对话）
+  const refreshSessions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/agent-sessions");
+      if (!res.ok) return;
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    } catch {
+      // 静默
+    }
+  }, []);
+
+  // 加载某会话的全部消息（不切换会话 id 时用 restore）
+  const loadSession = useCallback(
+    async (id: number) => {
+      setLoadingHistory(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/agent-sessions?id=${id}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setMessages(historyToChatItems(data.messages || []));
+        setSessionId(id);
+        persistSession(id);
+      } catch {
+        setError("历史会话加载失败，请稍后重试");
+      } finally {
+        setLoadingHistory(false);
+      }
+    },
+    [persistSession]
+  );
+
+  // 刷新后恢复上次会话：服务端保留完整上下文，续聊不另起孤儿会话
+  useEffect(() => {
+    void refreshSessions();
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved && /^\d+$/.test(saved)) {
+        const id = Number(saved);
+        setSessionId(id);
+        void loadSession(id);
+      }
+    } catch {
+      // localStorage 不可用（隐私模式等）时静默降级
+    }
+  }, [refreshSessions, loadSession]);
 
   const submitMessage = useCallback(
     async (textOverride?: string) => {
@@ -176,6 +256,8 @@ export default function AgentPage() {
         if (doneSessionId) {
           setSessionId(doneSessionId);
           persistSession(doneSessionId);
+          // 新会话/续聊都会更新标题与时间 → 刷新侧栏列表
+          void refreshSessions();
         } else if (streamMsgId) {
           // 流中断（超时/网络断开）但已有内容：保留已显示的部分
           setMessages((prev) =>
@@ -191,7 +273,7 @@ export default function AgentPage() {
         inputRef.current?.focus();
       }
     },
-    [input, loading, sessionId, persistSession]
+    [input, loading, sessionId, persistSession, refreshSessions]
   );
 
   const send = useCallback(() => {
@@ -206,6 +288,22 @@ export default function AgentPage() {
     inputRef.current?.focus();
   }, [persistSession]);
 
+  // 删除历史会话：成功后从列表移除；若删除的是当前会话则回到空状态
+  const handleDeleteSession = useCallback(
+    async (id: number) => {
+      try {
+        const res = await fetch(`/api/agent-sessions?id=${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        setError("会话删除失败，请稍后重试");
+        return;
+      }
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (sessionId === id) newSession();
+    },
+    [sessionId, newSession]
+  );
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -216,7 +314,7 @@ export default function AgentPage() {
     [send]
   );
 
-  const isEmpty = messages.length === 0 && !loading;
+  const isEmpty = messages.length === 0 && !loading && !loadingHistory;
 
   return (
     <>
@@ -226,36 +324,24 @@ export default function AgentPage() {
         <meta name="description" content="AI 研究助手 — 政策、行业、事件线索问答" />
       </Head>
 
-      <SiteHeader />
-
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[720px] px-4 sm:px-6 pb-12">
-          {/* 页头 */}
-          <div className="pt-8 pb-5 flex items-center justify-between gap-3 flex-wrap">
-            <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-                <MessageSquareText className="h-5 w-5 text-primary" />
-                研究助手
-              </h2>
-              <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-                基于真实信号数据的问答 — 政策 · 行业 · 事件线索
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={newSession}>
-              <RotateCcw className="h-3.5 w-3.5" />
-              新会话
-            </Button>
-          </div>
-
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>请求失败</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* 对话区 */}
-          <div className="rounded-xl border bg-card shadow-sm">
+      <AppShell
+        title="研究助手"
+        subtitle="基于真实信号数据的问答 · 政策 · 行业 · 事件线索"
+        scrollable={false}
+        sidebarExtra={
+          <SessionSidebarGroup
+            sessions={sessions}
+            currentId={sessionId}
+            query={query}
+            onQuery={setQuery}
+            onSelect={(id) => void loadSession(id)}
+            onNew={newSession}
+            onDelete={(id) => void handleDeleteSession(id)}
+          />
+        }
+      >
+        {/* 消息流（自身滚动，输入区贴底） */}
+        <div className="agent-scroll min-h-0 flex-1 overflow-y-auto">
             <style jsx global>{`
               .agent-scroll::-webkit-scrollbar { width: 6px; }
               .agent-scroll::-webkit-scrollbar-thumb {
@@ -265,9 +351,30 @@ export default function AgentPage() {
               .agent-scroll::-webkit-scrollbar-track { background: transparent; }
             `}</style>
 
-            <div className="agent-scroll p-4 sm:p-6 min-h-[420px] max-h-[60vh] overflow-y-auto space-y-5">
+            {/* 内容列宽度随分辨率阶梯放大；空对话时整列垂直居中提示块 */}
+            <div
+              className={cn(
+                "mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 py-6",
+                isEmpty && "flex min-h-full flex-col items-center justify-center"
+              )}
+            >
+              {error && (
+                <Alert variant="destructive" className="mb-5">
+                  <AlertTitle>请求失败</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-5">
+              {loadingHistory && (
+                <div className="flex items-center justify-center py-16 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="ml-2 text-xs">正在加载会话…</span>
+                </div>
+              )}
+
               {isEmpty && (
-                <div className="text-center py-10">
+                <div className="w-full text-center">
                   <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
                     <MessageSquareText className="h-6 w-6" />
                   </span>
@@ -298,7 +405,7 @@ export default function AgentPage() {
               {messages.map((m) => {
                 if (m.role === "system") {
                   return (
-                    <div key={m.id} className="text-center text-xs text-muted-foreground/70 py-1">
+                    <div key={m.id} className="text-center text-xs text-muted-foreground py-1">
                       {m.content}
                     </div>
                   );
@@ -306,16 +413,36 @@ export default function AgentPage() {
                 if (m.toolCall) {
                   return (
                     <div key={m.id} className="flex justify-start pl-10">
-                      <details className="group/tool max-w-[85%] rounded-lg border bg-accent/50 open:bg-accent/70">
-                        <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none">
-                          <Wrench className="h-3.5 w-3.5 shrink-0" />
-                          <span className="font-medium text-foreground">调用工具 {m.toolCall.name}</span>
-                          <span className="text-muted-foreground/70">执行中…</span>
-                        </summary>
-                        <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-[10px] text-muted-foreground whitespace-pre-wrap">
-                          {JSON.stringify(m.toolCall.args, null, 2)}
-                        </pre>
-                      </details>
+                      <div className="max-w-[85%]">
+                        <details className="group/tool rounded-xl border bg-muted/40 open:bg-muted/60">
+                          <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none">
+                            <Wrench className="h-3.5 w-3.5 shrink-0" />
+                            <span className="font-medium text-foreground">调用工具 {m.toolCall.name}</span>
+                            <span className="text-muted-foreground">执行中…</span>
+                          </summary>
+                          <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                            {JSON.stringify(m.toolCall.args, null, 2)}
+                          </pre>
+                        </details>
+                        {m.toolLog && m.toolLog.length > 0 && (
+                          <div className="mt-1.5 rounded-xl border bg-muted/20 px-3 py-2 space-y-1.5">
+                            {m.toolLog.map((t, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-xs">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                                    t.ok ? "bg-emerald-500" : "bg-destructive"
+                                  )}
+                                  aria-hidden
+                                />
+                                <Wrench className="h-3 w-3 shrink-0 opacity-70" />
+                                <span className="truncate font-medium">{t.name}</span>
+                                <span className="truncate text-muted-foreground">{t.summary}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 }
@@ -324,15 +451,16 @@ export default function AgentPage() {
                   <div key={m.id} className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
                     {!isUser && (
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
-                        <MessageSquareText className="h-4 w-4" />
+                        <Bot className="h-4 w-4" />
                       </span>
                     )}
                     <div
                       className={cn(
-                        "max-w-[85%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
+                        "max-w-[85%] whitespace-pre-wrap text-sm leading-relaxed",
                         isUser
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-accent/70 text-foreground"
+                          ? // 用户气泡：右上角直角，其余三角保持圆角
+                            "rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-accent/60 px-4 py-2.5 text-foreground"
+                          : "text-foreground"
                       )}
                     >
                       {m.content}
@@ -362,42 +490,49 @@ export default function AgentPage() {
               {loading && (
                 <div className="flex justify-start gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
-                    <MessageSquareText className="h-4 w-4" />
+                    <Bot className="h-4 w-4" />
                   </span>
-                  <div className="inline-flex items-center gap-2 rounded-xl bg-accent/70 px-3.5 py-2.5 text-sm text-muted-foreground">
+                  <div className="inline-flex items-center gap-2 pt-1.5 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在研究…
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
-            </div>
+              </div>{/* space-y-5 消息列表 */}
+              </div>{/* max-w 消息流容器 */}
+            </div>{/* agent-scroll 滚动区 */}
 
-            {/* 输入区 */}
-            <div className="border-t p-3 sm:p-4">
-              <div className="flex items-end gap-2">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={onKeyDown}
-                  placeholder="询问政策影响、行业趋势、事件进展…（Enter 发送，Shift+Enter 换行）"
-                  rows={1}
-                  maxLength={2000}
-                  className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-ring focus:ring-3 focus:ring-ring/20 min-h-[42px] max-h-[160px] transition-colors"
-                />
-                <Button onClick={send} disabled={loading || !input.trim()} className="shrink-0">
-                  <Send className="h-4 w-4" />
-                  <span className="hidden sm:inline">发送</span>
-                </Button>
+            {/* 输入区（大圆角容器 + 内嵌发送，无分割线） */}
+            <div className="shrink-0 bg-background px-4 py-3 sm:py-4">
+              <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px]">
+                <div className="flex items-end gap-2 rounded-2xl border bg-card p-3 shadow-sm transition-all focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
+                  <Textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder="询问政策影响、行业趋势、事件进展…（Enter 发送，Shift+Enter 换行）"
+                    rows={1}
+                    maxLength={2000}
+                    className="min-h-[104px] max-h-[200px] flex-1 resize-none border-0 bg-transparent px-2 py-4 shadow-none focus-visible:ring-0"
+                  />
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 shrink-0 rounded-xl"
+                    onClick={send}
+                    disabled={loading || loadingHistory || !input.trim()}
+                    aria-label="发送"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  AI 输出基于历史信号数据整理，仅供参考，不构成投资建议
+                </p>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground/70">
-                AI 输出基于历史信号数据整理，仅供参考，不构成投资建议
-              </p>
             </div>
-          </div>
-        </div>
-      </div>
+      </AppShell>
     </>
   );
 }

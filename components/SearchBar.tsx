@@ -129,7 +129,7 @@ export default function SearchBar({
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="搜索行业、公司、关键词…"
-          className="w-full h-9 pl-9 pr-8 rounded-lg border bg-background text-[13px] sm:text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+          className="w-full h-9 pl-9 pr-8 rounded-lg border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
         />
         {query && (
           <button
@@ -154,7 +154,7 @@ export default function SearchBar({
             setShowScoreDropdown(!showScoreDropdown);
             setShowTimeDropdown(false);
           }}
-          className="h-9 px-3 rounded-lg border bg-background text-[12px] sm:text-[13px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
+          className="h-9 px-3 rounded-lg border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
         >
           {currentScoreLabel}
         </button>
@@ -166,7 +166,7 @@ export default function SearchBar({
                 type="button"
                 onClick={() => handleScoreChange(opt.value)}
                 className={cn(
-                  "w-full text-left px-3 py-1.5 text-[12px] sm:text-[13px] hover:bg-accent transition-colors",
+                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
                   opt.value === minScore
                     ? "text-foreground font-medium"
                     : "text-muted-foreground",
@@ -187,7 +187,7 @@ export default function SearchBar({
             setShowTimeDropdown(!showTimeDropdown);
             setShowScoreDropdown(false);
           }}
-          className="h-9 px-3 rounded-lg border bg-background text-[12px] sm:text-[13px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
+          className="h-9 px-3 rounded-lg border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
         >
           {currentTimeLabel}
         </button>
@@ -199,7 +199,7 @@ export default function SearchBar({
                 type="button"
                 onClick={() => handleTimeChange(opt.value)}
                 className={cn(
-                  "w-full text-left px-3 py-1.5 text-[12px] sm:text-[13px] hover:bg-accent transition-colors",
+                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors",
                   opt.value === hoursBack
                     ? "text-foreground font-medium"
                     : "text-muted-foreground",

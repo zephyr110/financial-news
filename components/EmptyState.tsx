@@ -8,8 +8,8 @@ export default function EmptyState({ onRefresh }: { onRefresh?: () => void }) {
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/50 mb-4">
         <Radio className="h-8 w-8 opacity-50" />
       </span>
-      <p className="text-[13px] sm:text-sm lg:text-base font-medium">暂无快讯数据</p>
-      <p className="text-[11px] sm:text-xs lg:text-sm mt-1 opacity-60">
+      <p className="text-sm lg:text-base font-medium">暂无快讯数据</p>
+      <p className="text-xs lg:text-sm mt-1">
         数据正在采集中，稍后自动更新
       </p>
       {onRefresh && (

@@ -101,7 +101,7 @@ export default function NewsList({ todayItems, pastDates }: Props) {
               <span className="text-sm font-medium text-foreground">
                 {formatDayLabel(group.date)}
               </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
                 {group.items.length} 条
               </span>
               <ChevronDown
@@ -111,19 +111,23 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                 )}
               />
             </button>
+            {/* grid-rows 0fr→1fr：任意内容高度都能完整展开（max-h 固定值会裁剪长列表） */}
             <div
               className={cn(
-                "overflow-hidden transition-all duration-300 ease-in-out",
-                todayCollapsed ? "max-h-0 opacity-0" : "max-h-[9999px] opacity-100"
+                "grid transition-all duration-300 ease-in-out",
+                todayCollapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
               )}
             >
-              <ul className="space-y-4 list-none">
-                {group.items.map((item, i) => (
-                  <li key={item.id ?? `${group.date}-${i}`}>
-                    <NewsCard item={item} index={i} />
-                  </li>
-                ))}
-              </ul>
+              {/* p-px：卡片 ring-1 画在盒子外 1px，容器 overflow-hidden 会裁掉边缘，留出呼吸位（用户反馈） */}
+              <div className="overflow-hidden min-h-0 p-px">
+                <ul className="space-y-4 list-none">
+                  {group.items.map((item, i) => (
+                    <li key={item.id ?? `${group.date}-${i}`}>
+                      <NewsCard item={item} index={i} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </section>
         ))}
@@ -155,11 +159,11 @@ export default function NewsList({ todayItems, pastDates }: Props) {
                 {state?.loading ? (
                   <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
                 ) : state?.items ? (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground tabular-nums">
                     {state.items.length} 条
                   </span>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground/60">
+                  <span className="text-xs text-muted-foreground">
                     点击展开
                   </span>
                 )}
@@ -173,21 +177,23 @@ export default function NewsList({ todayItems, pastDates }: Props) {
 
               <div
                 className={cn(
-                  "overflow-hidden transition-all duration-300 ease-in-out",
+                  "grid transition-all duration-300 ease-in-out",
                   !isCollapsed && state && !state.loading && groups.length > 0
-                    ? "max-h-[9999px] opacity-100"
-                    : "max-h-0 opacity-0"
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0"
                 )}
               >
-                {state && !state.loading && groups.length > 0 && (
-                  <ul className="space-y-4 list-none">
-                    {groups.flatMap(g => g.items).map((item, i) => (
-                      <li key={item.id ?? `${date}-${i}`}>
-                        <NewsCard item={item} index={i} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="overflow-hidden min-h-0 p-px">
+                  {state && !state.loading && groups.length > 0 && (
+                    <ul className="space-y-4 list-none">
+                      {groups.flatMap(g => g.items).map((item, i) => (
+                        <li key={item.id ?? `${date}-${i}`}>
+                          <NewsCard item={item} index={i} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             </section>
           );

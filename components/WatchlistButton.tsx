@@ -34,7 +34,7 @@ export default function WatchlistButton({ type, id, className, compact = false }
         on
           ? "border-amber-400/60 bg-amber-400/10 text-amber-500 hover:bg-amber-400/20"
           : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
-        compact ? "px-1.5 py-1" : "px-2.5 py-1 text-[11px] sm:text-xs font-medium",
+        compact ? "px-1.5 py-1" : "px-2.5 py-1 text-xs font-medium",
         className,
       )}
     >

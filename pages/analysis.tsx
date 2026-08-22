@@ -15,12 +15,13 @@ import ClientOnly from "../components/ClientOnly";
 import SignalAlert from "../components/SignalAlert";
 import SignalTimeline from "../components/SignalTimeline";
 import IndustrySelector from "../components/IndustrySelector";
-import SiteHeader from "../components/SiteHeader";
+import AppShell from "../components/app-shell";
+import { TopbarRefreshButton } from "../components/app-topbar";
+import SectionNavGroup from "../components/SectionNavGroup";
 import ErrorBanner from "../components/ErrorBanner";
 import SearchBar from "../components/SearchBar";
 import SignalSearchResults from "../components/SignalSearchResults";
 import WatchlistPanel from "../components/WatchlistPanel";
-import ContentNav from "../components/ContentNav";
 import { getAnalyzedNews, getAnalysisStats, getIndustryHeatmap, getIndustryTrend, getEventThreads } from "../lib/db";
 import { useWatchedIndustries } from "../lib/useWatchedIndustries";
 import { safeParse } from "../lib/utils";
@@ -233,22 +234,28 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
         <meta name="description" content="AI 驱动的财经信号识别引擎 — 政策、行业、公司信号强度分析" />
       </Head>
 
-      <SiteHeader onRefresh={doRefresh} refreshing={fetching} lastUpdated={null} />
-      <ContentNav items={navItems} />
-      <SignalAlert items={watchedItems} />
-
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
+      {/* 全局壳：左侧导航侧栏（页面内容分组）+ 顶栏 + 内容滚动区 */}
+      <AppShell
+        title="信号分析"
+        actions={<TopbarRefreshButton onClick={doRefresh} refreshing={fetching} />}
+        sidebarExtra={<SectionNavGroup items={navItems} />}
+      >
+        {/* 内容列宽度随分辨率阶梯放大，与 agent 一致 */}
+        <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 pb-12">
           <div className="pt-8 pb-5 flex items-end justify-between flex-wrap gap-2">
-            <h2 className="text-[13px] sm:text-sm text-muted-foreground font-normal">
+            <p className="text-sm text-muted-foreground font-normal">
               政策 · 行业 · 公司 — AI 智能分析，一目了然
-            </h2>
-            <IndustrySelector
-              industries={availableIndustries}
-              watched={watched}
-              onToggle={toggleIndustry}
-              onClear={clearIndustries}
-            />
+            </p>
+            {/* 操作区：重要信号提醒 + 关注行业（同组：提醒作用于关注行业的信号） */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <SignalAlert items={watchedItems} />
+              <IndustrySelector
+                industries={availableIndustries}
+                watched={watched}
+                onToggle={toggleIndustry}
+                onClear={clearIndustries}
+              />
+            </div>
           </div>
 
           <ErrorBanner message={error} />
@@ -278,10 +285,10 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               <div id="charts" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 scroll-mt-28">
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs sm:text-sm font-medium text-foreground">
+                    <h3 className="text-sm font-semibold text-foreground">
                       {viewMode === "industry" ? "行业信号分布" : "公司提及热度"}
                     </h3>
-                    <div className="flex items-center rounded-lg border text-[10px] sm:text-[11px] overflow-hidden">
+                    <div className="flex items-center rounded-lg border text-xs overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setViewMode("industry")}
@@ -315,12 +322,12 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   {viewMode === "industry" && marketToday.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] text-muted-foreground">今日板块涨跌</span>
-                        <span className="text-[10px] text-muted-foreground">收盘</span>
+                        <span className="text-xs text-muted-foreground">今日板块涨跌</span>
+                        <span className="text-xs text-muted-foreground">收盘</span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1">
                         {marketToday.map((m: any) => (
-                          <span key={m.name} className="text-[11px] sm:text-xs flex items-center gap-1">
+                          <span key={m.name} className="text-xs flex items-center gap-1">
                             <span className="text-muted-foreground">{m.name}</span>
                             <span
                               className={
@@ -339,7 +346,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   )}
                 </div>
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
                     信号分类占比
                   </h3>
                   <CategoryDonutChart items={watchedItems} totalSignals={stats?.total_signals} />
@@ -349,7 +356,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               {/* Sentiment distribution (full width below the 2-col grid) */}
               {sentimentBreakdown.length > 0 && (
                 <div id="sentiment" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
                     情感分布
                   </h3>
                   <SentimentChart data={sentimentBreakdown} />
@@ -359,7 +366,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
               {trend.length >= 2 && (
                 <div id="trend" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                    <h3 className="text-xs sm:text-sm font-medium text-foreground">
+                    <h3 className="text-sm font-semibold text-foreground">
                       行业热度趋势
                     </h3>
                     <TimeRangeFilter value={trendHours} onChange={setTrendHours} />
@@ -383,13 +390,13 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           {isSearchActive ? (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   搜索结果
                 </h3>
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   ← 返回时间线
                 </button>
@@ -408,7 +415,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             <>
               <ScoreFilter value={scoreFilter} onChange={setScoreFilter} />
 
-              <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+              <h3 className="text-sm font-semibold text-foreground mb-3">
                 信号时间线 {filteredItems.length > 0 && `(${filteredItems.length})`}
               </h3>
               <SignalTimeline
@@ -423,18 +430,18 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
           {/* 页脚：免责声明 + P2.5 验证报告入口（内部工具） */}
           <div className="mt-10 pt-6 border-t border-border flex items-center justify-between flex-wrap gap-2">
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               分析仅作为信息准备，不构成投资建议
             </p>
             <Link
               href="/analytics/value"
-              className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
             >
               价值验证报告
             </Link>
           </div>
         </div>
-      </div>
+      </AppShell>
     </>
   );
 }

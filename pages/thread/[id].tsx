@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Zap, AlertCircle, CalendarDays, History, Flame, TrendingUp, ExternalLink } from "lucide-react";
-import SiteHeader from "../../components/SiteHeader";
+import AppShell from "../../components/app-shell";
 import SignalBadge from "../../components/SignalBadge";
 import ErrorBanner from "../../components/ErrorBanner";
 import WatchlistButton from "../../components/WatchlistButton";
@@ -78,15 +78,14 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
     return (
       <>
         <Head><title>加载中… — 财经信号</title></Head>
-        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-        <div className="min-h-screen bg-background">
+        <AppShell title="事件线索">
           <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
             <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">加载中…</span>
             </div>
           </div>
-        </div>
+        </AppShell>
       </>
     );
   }
@@ -95,19 +94,18 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
     return (
       <>
         <Head><title>事件线索 — 财经信号</title></Head>
-        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-        <div className="min-h-screen bg-background">
+        <AppShell title="事件线索">
           <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
             <Link
               href="/analysis"
-              className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               返回分析面板
             </Link>
             <ErrorBanner message={error} />
           </div>
-        </div>
+        </AppShell>
       </>
     );
   }
@@ -130,13 +128,11 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
         />
       </Head>
 
-      <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-
-      <div className="min-h-screen bg-background">
+      <AppShell title="事件线索">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
           <Link
             href="/analysis"
-            className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             返回分析面板
@@ -156,7 +152,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                     {thread.title}
                   </h1>
                   <span className={cn(
-                    "text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-medium",
+                    "text-xs px-1.5 py-0.5 rounded-full font-medium",
                     STAGE_COLORS[thread.stage] || STAGE_COLORS.early
                   )}>
                     {STAGE_LABELS[thread.stage] || thread.stage}
@@ -164,22 +160,22 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                   <WatchlistButton type="thread" id={thread.id} compact className="ml-auto shrink-0" />
                 </div>
 
-                <p className="text-[13px] sm:text-sm text-foreground leading-relaxed mb-3">
+                <p className="text-sm text-foreground leading-relaxed mb-3">
                   {thread.narrative}
                 </p>
 
-                <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5" />
                   生成于 {formatDate(thread.created_at)} {formatTime(thread.created_at)}
                 </div>
 
                 {thread.industries?.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap mt-3">
-                    <span className="text-[10px] text-muted-foreground">涉及行业：</span>
+                    <span className="text-xs text-muted-foreground">涉及行业：</span>
                     {thread.industries.map((ind: string) => (
                       <span
                         key={ind}
-                        className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground"
+                        className="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground"
                       >
                         {ind}
                       </span>
@@ -190,18 +186,18 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                 {/* 起因：最早信号 + 原始快讯 + 原文链接 */}
                 {origin && (
                   <div className="mt-4 pt-4 border-t border-border">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
                       <Flame className="h-3 w-3 text-amber-500" />
                       起因 · {formatDate(origin.published_at)} {formatTime(origin.published_at)}
                     </div>
                     <div className="flex items-start gap-2.5">
                       <SignalBadge score={origin.signal_score} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[12px] sm:text-[13px] text-foreground leading-relaxed">
+                        <p className="text-sm text-foreground leading-relaxed">
                           {origin.summary}
                         </p>
                         {origin.content && (
-                          <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-3">
+                          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-3">
                             {origin.content}
                           </p>
                         )}
@@ -211,13 +207,13 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                               href={origin.docurl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] sm:text-[11px] text-primary hover:underline inline-flex items-center gap-0.5"
+                              className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
                             >
                               阅读原文 <ExternalLink className="h-3 w-3" />
                             </a>
                           )}
                           {origin.source && (
-                            <span className="text-[10px] text-muted-foreground">{origin.source}</span>
+                            <span className="text-xs text-muted-foreground">{origin.source}</span>
                           )}
                         </div>
                       </div>
@@ -228,7 +224,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
 
               {/* ── 段② 进展时间线 ── */}
               <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                   <History className="h-4 w-4 text-primary" />
                   进展时间线（{signals.length} 条）
                 </h3>
@@ -247,29 +243,29 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                         <div className="flex flex-col items-center shrink-0">
                           <SignalBadge score={s.signal_score} size="md" />
                           {i === 0 && (
-                            <span className="text-[9px] text-amber-500 mt-1">起因</span>
+                            <span className="text-xs text-amber-500 mt-1">起因</span>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] sm:text-sm text-foreground leading-relaxed">
+                          <p className="text-sm text-foreground leading-relaxed">
                             {s.summary}
                           </p>
                           <div className="mt-1 flex items-center gap-2 flex-wrap">
                             <span className={cn(
-                              "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                              "text-xs px-1.5 py-0.5 rounded font-medium",
                               CATEGORY_COLORS[s.category] || CATEGORY_COLORS.macro
                             )}>
                               {CATEGORY_LABELS[s.category] || s.category}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               {SCORE_LABELS[s.signal_score] || ""}信号
                             </span>
-                            <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
+                            <span className="text-xs text-muted-foreground ml-auto tabular-nums">
                               {formatDate(s.published_at)} {formatTime(s.published_at)}
                             </span>
                           </div>
                           {s.content && (
-                            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-2">
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">
                               {s.content}
                             </p>
                           )}
@@ -282,7 +278,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
 
               {/* ── 段③ 市场反应：今日板块涨跌 + 行业回测 ── */}
               <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                   <TrendingUp className="h-4 w-4 text-primary" />
                   市场反应
                 </h3>
@@ -290,14 +286,14 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                   <>
                     {thread.market?.length > 0 && (
                       <div className="mb-3">
-                        <span className="text-[10px] text-muted-foreground block mb-1.5">
+                        <span className="text-xs text-muted-foreground block mb-1.5">
                           今日板块涨跌
                         </span>
                         <div className="flex flex-wrap gap-x-4 gap-y-1">
                           {thread.market.map((m: any) => {
                             const pct = Number(m.change_pct);
                             return (
-                              <span key={m.name} className="text-[11px] sm:text-xs flex items-center gap-1">
+                              <span key={m.name} className="text-xs flex items-center gap-1">
                                 <span className="text-muted-foreground">{m.name}</span>
                                 {/* A股惯例：红涨绿跌 */}
                                 <span
@@ -318,7 +314,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                     )}
                     {thread.backtest?.length > 0 && (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-[11px] sm:text-xs">
+                        <table className="w-full text-xs">
                           <thead>
                             <tr className="text-muted-foreground border-b">
                               <th className="text-left py-2 pr-4 font-medium">行业回测</th>
@@ -340,7 +336,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                                     <span className="inline-flex items-center gap-1.5">
                                       {row.industry}
                                       <span className={cn(
-                                        "text-[9px] px-1 py-0.5 rounded",
+                                        "text-xs px-1 py-0.5 rounded",
                                         tier === "sufficient"
                                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
                                           : tier === "reference"
@@ -354,7 +350,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                                   <td className="py-2 px-2 text-right tabular-nums">
                                     {row.samples}
                                     {!showNumbers && (
-                                      <span className="ml-1 text-[10px] text-muted-foreground">/10</span>
+                                      <span className="ml-1 text-xs text-muted-foreground">/10</span>
                                     )}
                                   </td>
                                   <td className="py-2 px-2 text-right tabular-nums">
@@ -376,7 +372,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                             })}
                           </tbody>
                         </table>
-                        <p className="text-[10px] text-muted-foreground mt-2">
+                        <p className="text-xs text-muted-foreground mt-2">
                           信号出现后行业指数平均涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
                         </p>
                       </div>
@@ -392,14 +388,14 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
               {/* ── 段④ 后续关注 ── */}
               {thread.watch_points?.length > 0 && (
                 <div className="bg-card border rounded-xl p-4 sm:p-6">
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
                     后续关注
                   </h3>
                   <ul className="space-y-1.5">
                     {thread.watch_points.map((p: string, i: number) => (
                       <li
                         key={i}
-                        className="text-[12px] sm:text-[13px] text-muted-foreground flex items-start gap-2"
+                        className="text-sm text-muted-foreground flex items-start gap-2"
                       >
                         <span className="text-primary mt-1">•</span>
                         {p}
@@ -415,7 +411,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
             </div>
           )}
         </div>
-      </div>
+      </AppShell>
     </>
   );
 }

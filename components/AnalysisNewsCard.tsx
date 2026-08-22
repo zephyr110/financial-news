@@ -31,32 +31,32 @@ export default function AnalysisNewsCard({ item }) {
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] sm:text-sm lg:text-base leading-loose text-foreground font-medium">
+            <p className="text-sm lg:text-base leading-loose text-foreground font-medium">
               {item.summary}
             </p>
 
-            <p className="mt-2.5 text-[11px] sm:text-xs text-muted-foreground">
+            <p className="mt-2.5 text-xs text-muted-foreground">
               {item.content}
             </p>
 
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              <Badge className={cn("text-[11px] sm:text-xs px-1.5 py-0", CATEGORY_COLORS[item.category])}>
+              <Badge className={cn("text-xs px-1.5 py-0", CATEGORY_COLORS[item.category])}>
                 {CATEGORY_LABELS[item.category] || item.category}
               </Badge>
 
               {item.source && (
-                <Badge variant="secondary" className="text-[10px] sm:text-[11px] px-1.5 py-0">
+                <Badge variant="secondary" className="text-xs px-1.5 py-0">
                   {SOURCE_LABELS[item.source] || item.source}
                 </Badge>
               )}
 
               {item.industries?.map((ind) => (
-                <Badge key={ind} variant="outline" className="text-[11px] sm:text-xs px-1.5 py-0">
+                <Badge key={ind} variant="outline" className="text-xs px-1.5 py-0">
                   {ind}
                 </Badge>
               ))}
 
-              <span className="text-[11px] sm:text-xs text-muted-foreground ml-auto tabular-nums">
+              <span className="text-xs text-muted-foreground ml-auto tabular-nums">
                 {dateLabel} {timeLabel}
               </span>
             </div>

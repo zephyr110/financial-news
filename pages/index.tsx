@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import NewsList from "../components/NewsList";
-import SiteHeader from "../components/SiteHeader";
+import AppShell, { useAppShellScroll } from "../components/app-shell";
+import { TopbarRefreshButton } from "../components/app-topbar";
 import ErrorBanner from "../components/ErrorBanner";
 import EmptyState from "../components/EmptyState";
 import TodaySignalSummary from "../components/TodaySignalSummary";
-import { buttonVariants } from "../components/ui/button";
-import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 
 const PULL_THRESHOLD = 56;
 
 export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today: ssgTodayStr, error: ssgError }) {
+  // AppShell 内容滚动容器——下拉刷新守卫读 scrollTop（替代原 window.scrollY）
+  const scrollRef = useAppShellScroll();
   const [todayItems, setTodayItems] = useState(ssgToday || []);
   const [pastDates, setPastDates] = useState(ssgDates || []);
   const [error, setError] = useState(ssgError ?? null);
@@ -82,11 +83,11 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
   // ---- touch handlers ----
   const onTouchStart = useCallback((e) => {
     pulling.current = false;
-    if (window.scrollY === 0 && !fetchingRef.current) {
+    if ((scrollRef?.current?.scrollTop ?? 0) <= 0 && !fetchingRef.current) {
       touchY0.current = e.touches[0].clientY;
       pulling.current = true;
     }
-  }, []);
+  }, [scrollRef]);
 
   const onTouchMove = useCallback((e) => {
     if (!pulling.current) return;
@@ -137,19 +138,16 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
         />
       </Head>
 
-      <SiteHeader
-        onRefresh={doRefresh}
-        refreshing={fetching}
-        lastUpdated={lastUpdated}
-      />
-
+      <AppShell
+        title="新闻快讯"
+        actions={<TopbarRefreshButton onClick={doRefresh} refreshing={fetching} />}
+      >
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchCancel}
-        className="min-h-screen bg-background"
-        style={{ overscrollBehavior: "none" }}
+        className="bg-background"
       >
         {/* Pull-to-refresh indicator */}
         <div
@@ -173,17 +171,18 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
           </span>
         </div>
 
-        <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6 pb-12">
+        {/* 内容列宽度随分辨率阶梯放大，与 agent/analysis 一致 */}
+        <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 pb-12">
           {/* Hero */}
           <div className="pt-8 pb-6 flex items-end justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
                 实时财经快讯
               </h2>
-              <p className="mt-1 text-[13px] sm:text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground">
                 7×24 全球快讯 · AI 智能筛选高价值信号
               </p>
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/70">
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="relative flex h-2 w-2" aria-hidden>
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
@@ -202,18 +201,6 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={doRefresh}
-              disabled={fetching}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "text-xs sm:text-sm shrink-0"
-              )}
-            >
-              <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
-              {fetching ? "更新中" : "刷新"}
-            </button>
           </div>
 
           <ErrorBanner message={error} />
@@ -227,6 +214,7 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
           )}
         </div>
       </div>
+      </AppShell>
     </>
   );
 }

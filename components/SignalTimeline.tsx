@@ -31,7 +31,7 @@ export default function SignalTimeline({ items, hasMore, loading, onLoadMore }: 
             type="button"
             onClick={onLoadMore}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground bg-card border hover:border-primary/50 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-card border hover:border-primary/50 transition-all disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? '加载中…' : '加载更多'}

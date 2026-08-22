@@ -37,7 +37,7 @@ export default function TimeRangeFilter({ value, onChange }) {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[11px] sm:text-xs text-muted-foreground shrink-0">
+      <span className="text-xs text-muted-foreground shrink-0">
         时间跨度：
       </span>
       <div className="flex items-center gap-1">
@@ -49,7 +49,7 @@ export default function TimeRangeFilter({ value, onChange }) {
               type="button"
               onClick={() => handlePreset(hours)}
               className={cn(
-                "px-2.5 h-8 rounded-full text-[11px] sm:text-xs font-medium transition-all border",
+                "px-2.5 h-8 rounded-full text-xs font-medium transition-all border",
                 active
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
@@ -67,19 +67,19 @@ export default function TimeRangeFilter({ value, onChange }) {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="text-[11px] sm:text-xs bg-card border rounded-md px-2 py-1 text-foreground"
+            className="text-xs bg-card border rounded-md px-2 py-1 text-foreground"
           />
-          <span className="text-[11px] text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="text-[11px] sm:text-xs bg-card border rounded-md px-2 py-1 text-foreground"
+            className="text-xs bg-card border rounded-md px-2 py-1 text-foreground"
           />
           <button
             type="button"
             onClick={handleCustomApply}
-            className="px-2 py-1 rounded-md text-[11px] sm:text-xs font-medium bg-primary text-primary-foreground"
+            className="px-2 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground"
           >
             确定
           </button>

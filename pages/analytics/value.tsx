@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { Loader2, CheckCircle2, XCircle, Clock, BarChart3, ShieldCheck } from "lucide-react";
-import SiteHeader from "../../components/SiteHeader";
+import AppShell from "../../components/app-shell";
 import ErrorBanner from "../../components/ErrorBanner";
 import { cn } from "@/lib/utils";
 import { VERDICT_LABELS } from "@/lib/value";
@@ -45,16 +45,14 @@ export default function ValueReportPage() {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-
-      <div className="min-h-screen bg-background">
+      <AppShell title="价值验证报告">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
           <div className="flex items-center gap-2 mb-6">
             <BarChart3 className="h-5 w-5 text-primary" />
             <h1 className="text-base sm:text-lg font-semibold text-foreground">
               价值验证报告
             </h1>
-            <span className="text-[10px] text-muted-foreground ml-auto">
+            <span className="text-xs text-muted-foreground ml-auto">
               P2.5 · M2 关卡 · 数据窗口 7 天
             </span>
           </div>
@@ -75,7 +73,7 @@ export default function ValueReportPage() {
                 className={cn(
                   "rounded-xl border p-4 sm:p-5 mb-6 flex items-start gap-3",
                   report.verdict === "go" && "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800",
-                  report.verdict === "no-go" && "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
+                  report.verdict === "no-go" && "bg-destructive/5 border-destructive/20 dark:bg-destructive/10 dark:border-destructive/30",
                   report.verdict === "insufficient-data" && "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
                 )}
               >
@@ -99,12 +97,12 @@ export default function ValueReportPage() {
 
               {/* ── 5 项指标 ── */}
               <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                   <ShieldCheck className="h-4 w-4 text-primary" />
                   指标与阈值对照
                 </h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[11px] sm:text-xs">
+                  <table className="w-full text-xs">
                     <thead>
                       <tr className="text-muted-foreground border-b">
                         <th className="text-left py-2 pr-4 font-medium">指标</th>
@@ -119,7 +117,7 @@ export default function ValueReportPage() {
                           <td className="py-2.5 pr-4 text-foreground">
                             {c.label}
                             {c.note && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5">{c.note}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{c.note}</p>
                             )}
                           </td>
                           <td className="py-2.5 px-2 text-right tabular-nums font-medium">
@@ -132,7 +130,7 @@ export default function ValueReportPage() {
                           </td>
                           <td className="py-2.5 pl-2 text-right">
                             {c.pass === null ? (
-                              <span className="text-[10px] text-muted-foreground">待观察</span>
+                              <span className="text-xs text-muted-foreground">待观察</span>
                             ) : c.pass ? (
                               <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="h-3.5 w-3.5" /> 通过
@@ -152,7 +150,7 @@ export default function ValueReportPage() {
 
               {/* ── 参考指标 ── */}
               <div className="bg-card border rounded-xl p-4 sm:p-6">
-                <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                <h3 className="text-sm font-semibold text-foreground mb-3">
                   参考指标（无阈值，仅观察）
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -163,14 +161,14 @@ export default function ValueReportPage() {
                     { label: "行业钻取率", value: report.rates.industry_drill },
                   ].map((r) => (
                     <div key={r.label} className="rounded-lg border bg-background p-3">
-                      <p className="text-[10px] text-muted-foreground">{r.label}</p>
+                      <p className="text-xs text-muted-foreground">{r.label}</p>
                       <p className="text-sm font-semibold text-foreground tabular-nums mt-1">
                         {(r.value * 100).toFixed(1)}%
                       </p>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-3">
+                <p className="text-xs text-muted-foreground mt-3">
                   周回访率（跨周去重 session 占比）：{" "}
                   {report.weeklyReturnRate === null
                     ? "无数据"
@@ -181,7 +179,7 @@ export default function ValueReportPage() {
             </>
           )}
         </div>
-      </div>
+      </AppShell>
     </>
   );
 }

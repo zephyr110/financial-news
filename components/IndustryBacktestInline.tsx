@@ -50,7 +50,7 @@ export default function IndustryBacktestInline({
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50",
+          "flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50",
           onViewDetail && "cursor-pointer hover:text-foreground transition-colors",
           className
         )}
@@ -83,7 +83,7 @@ export default function IndustryBacktestInline({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50",
+        "flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50",
         onViewDetail && "cursor-pointer hover:text-foreground transition-colors",
         className
       )}
