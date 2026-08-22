@@ -34,8 +34,17 @@ describe("SignalBadge", () => {
 
   it("renders empty placeholder for score 0 (unanalyzed)", () => {
     render(<SignalBadge score={0} />);
-    expect(screen.getByText("○")).toBeInTheDocument();
-    expect(screen.getByLabelText("待分析")).toBeInTheDocument();
+    const badge = screen.getByLabelText("待分析");
+    expect(badge).toBeInTheDocument();
+    expect(badge.className).toContain("border-dotted");
+    expect(badge).toBeEmptyDOMElement();
+  });
+
+  it("renders low score with dashed circle when showLowScores", () => {
+    render(<SignalBadge score={2} showLowScores />);
+    const badge = screen.getByLabelText("低分信号 2 分");
+    expect(badge).toHaveTextContent("2");
+    expect(badge.className).toContain("border-dashed");
   });
 
   it("renders empty placeholder for null score", () => {

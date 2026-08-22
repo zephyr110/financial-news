@@ -293,7 +293,12 @@ function SidebarInput({
     <Input
       data-slot="sidebar-input"
       data-sidebar="input"
-      className={cn("h-8 w-full bg-background shadow-none", className)}
+      className={cn(
+        "h-8 w-full border-sidebar-border bg-background text-sidebar-foreground shadow-none",
+        "placeholder:text-muted-foreground",
+        "focus-visible:border-sidebar-ring focus-visible:ring-sidebar-ring/30",
+        className
+      )}
       {...props} />
   );
 }

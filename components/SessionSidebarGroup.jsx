@@ -8,6 +8,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
   useSidebar,
 } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -64,12 +65,12 @@ export default function SessionSidebarGroup({
       {/* 折叠 icon rail 时隐藏搜索与列表（新对话入口保留） */}
       <div className="flex min-h-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
         <div className="relative mb-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <SidebarInput
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             placeholder="搜索会话…"
-            className="bg-muted/30 pl-8 text-xs"
+            className="pl-8 text-xs"
           />
         </div>
 
@@ -130,16 +131,24 @@ export default function SessionSidebarGroup({
         </div>
       </div>
 
-      <SidebarMenu>
+      <SidebarSeparator className="group-data-[collapsible=icon]:hidden" />
+
+      <SidebarMenu className="pt-1">
         <SidebarMenuItem>
           <SidebarMenuButton
+            variant="outline"
             tooltip="新对话"
             onClick={() => {
               onNew();
               closeOnMobile();
             }}
+            className={cn(
+              "font-medium text-sidebar-foreground shadow-none",
+              "hover:bg-sidebar-primary/10 hover:text-sidebar-primary",
+              "[&_svg]:text-sidebar-primary"
+            )}
           >
-            <MessageSquarePlus className="text-primary" />
+            <MessageSquarePlus />
             <span>新对话</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

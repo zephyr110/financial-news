@@ -210,7 +210,7 @@ export default function Home({ todayItems: ssgToday, pastDates: ssgDates, today:
           {todayItems.length > 0 ? (
             <NewsList todayItems={todayItems} pastDates={pastDates} />
           ) : (
-            !error && <EmptyState onRefresh={doRefresh} />
+            !error && <EmptyState onRefresh={doRefresh} refreshing={fetching} />
           )}
         </div>
       </div>

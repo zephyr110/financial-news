@@ -12,4 +12,5 @@ docs/
 .env.*
 !.env.example
 tsconfig.tsbuildinfo
-node_modules
+
+bk.md

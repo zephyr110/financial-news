@@ -20,11 +20,11 @@ import { cn } from "@/lib/utils";
  * 信号分析页侧栏分组：页面内容区块导航（sidebar-07 折叠分区模式）。
  * Collapsible 折叠分区 + scroll-spy 高亮（滚动容器 root，-56px 顶栏带）。
  */
-export default function SectionNavGroup({ items }) {
-  const scrollRef = useAppShellScroll();
+export default function SectionNavGroup({ items, scrollRoot = null }) {
+  const shellScrollRef = useAppShellScroll();
   const { setOpenMobile } = useSidebar();
   const { active, setActive } = useSectionSpy(items, {
-    root: scrollRef?.current ?? null,
+    root: scrollRoot ?? shellScrollRef?.current ?? null,
     rootMargin: "-56px 0px -60% 0px",
   });
 

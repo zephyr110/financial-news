@@ -212,19 +212,24 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
   const hasData = items.length > 0;
 
-  // 内容导航：长页面快速定位（sticky + scroll-spy），区块随可用数据动态出现
+  // 内容导航：标签与右侧区块 h3 标题一致
   const navItems = useMemo(() => {
     const itemsArr: { id: string; label: string }[] = [{ id: "overview", label: "概览" }];
     if (hasData) {
       itemsArr.push({ id: "charts", label: "图表" });
-      if (sentimentBreakdown.length > 0) itemsArr.push({ id: "sentiment", label: "情感" });
-      if (trend.length >= 2) itemsArr.push({ id: "trend", label: "趋势" });
+      if (sentimentBreakdown.length > 0) itemsArr.push({ id: "sentiment", label: "情感分布" });
+      if (trend.length >= 2) itemsArr.push({ id: "trend", label: "行业热度趋势" });
     }
     itemsArr.push({ id: "threads", label: "事件线索" });
-    itemsArr.push({ id: "backtest", label: "回测" });
-    itemsArr.push({ id: "timeline", label: isSearchActive ? "搜索结果" : "时间线" });
+    itemsArr.push({ id: "backtest", label: "信号有效性回测" });
+    itemsArr.push({ id: "timeline", label: isSearchActive ? "搜索结果" : "信号时间线" });
     return itemsArr;
   }, [hasData, sentimentBreakdown.length, trend.length, isSearchActive]);
+
+  const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
+  const contentScrollRef = useCallback((node: HTMLDivElement | null) => {
+    setScrollRoot(node);
+  }, []);
 
   return (
     <>
@@ -237,11 +242,17 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
       {/* 全局壳：左侧导航侧栏（页面内容分组）+ 顶栏 + 内容滚动区 */}
       <AppShell
         title="信号分析"
+        scrollable={false}
         actions={<TopbarRefreshButton onClick={doRefresh} refreshing={fetching} />}
-        sidebarExtra={<SectionNavGroup items={navItems} />}
+        sidebarExtra={<SectionNavGroup items={navItems} scrollRoot={scrollRoot} />}
       >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div
+            ref={contentScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-none"
+          >
         {/* 内容列宽度随分辨率阶梯放大，与 agent 一致 */}
-        <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 pb-12">
+        <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 pb-8">
           <div className="pt-8 pb-5 flex items-end justify-between flex-wrap gap-2">
             <p className="text-sm text-muted-foreground font-normal">
               政策 · 行业 · 公司 — AI 智能分析，一目了然
@@ -270,6 +281,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           />
 
           <div id="overview" className="scroll-mt-28">
+            <h3 className="text-sm font-semibold text-foreground mb-3">概览</h3>
             <AnalysisOverview
               stats={stats}
               items={watchedItems}
@@ -282,7 +294,9 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           {/* Charts: 2-col grid + full-width trend (client-only to avoid hydration mismatch) */}
           {hasData && (
             <ClientOnly fallback={<div className="h-40 rounded-xl bg-muted/20 animate-pulse mb-6" />}>
-              <div id="charts" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 scroll-mt-28">
+              <div id="charts" className="scroll-mt-28">
+              <h3 className="text-sm font-semibold text-foreground mb-3">图表</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div className="bg-card border rounded-xl p-4 sm:p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-foreground">
@@ -351,6 +365,7 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
                   </h3>
                   <CategoryDonutChart items={watchedItems} totalSignals={stats?.total_signals} />
                 </div>
+              </div>
               </div>
 
               {/* Sentiment distribution (full width below the 2-col grid) */}
@@ -427,18 +442,22 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
             </>
           )}
           </div>
+        </div>
+          </div>
 
-          {/* 页脚：免责声明 + P2.5 验证报告入口（内部工具） */}
-          <div className="mt-10 pt-6 border-t border-border flex items-center justify-between flex-wrap gap-2">
-            <p className="text-xs text-muted-foreground">
-              分析仅作为信息准备，不构成投资建议
-            </p>
-            <Link
-              href="/analytics/value"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              价值验证报告
-            </Link>
+          {/* 页脚：固定在视口底部 */}
+          <div className="shrink-0 bg-background px-4 sm:px-6 py-3">
+            <div className="mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] flex items-center justify-between flex-wrap gap-2">
+              <p className="text-xs text-muted-foreground">
+                分析仅作为信息准备，不构成投资建议
+              </p>
+              <Link
+                href="/analytics/value"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                价值验证报告
+              </Link>
+            </div>
           </div>
         </div>
       </AppShell>
