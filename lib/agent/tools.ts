@@ -101,11 +101,11 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       type: 'object',
       properties: {
         industry: { type: 'string', description: '行业名（可选，如"半导体"），不填则返回全部' },
-        daysBack: { type: 'number', description: '回溯天数，默认90' },
+        daysBack: { type: 'number', description: '回溯天数，默认30' },
       },
     },
     async execute(args) {
-      const rows = await getBacktestByIndustry(Number(args.daysBack) || 90);
+      const rows = await getBacktestByIndustry(Number(args.daysBack) || 30);
       if (rows.length === 0) return '暂无回测数据（需要积累足够历史信号）。';
       const filtered = args.industry
         ? rows.filter((r) => (r.industry as string).includes(String(args.industry)))
@@ -114,7 +114,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       const lines = filtered.slice(0, 10).map((r) =>
         `${r.industry}: ${r.samples}次样本 1日${r.avg_d1}% 3日${r.avg_d3}% 7日${r.avg_d7}% 胜率${r.win_rate}%`
       );
-      return `行业信号回测统计（近${Number(args.daysBack) || 90}天）：\n${lines.join('\n')}`;
+      return `行业信号回测统计（近${Number(args.daysBack) || 30}天）：\n${lines.join('\n')}`;
     },
   },
   {

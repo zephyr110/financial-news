@@ -383,11 +383,11 @@ export async function updateDeepAnalysis(newsId, { industries, companies, tags, 
 /** Get news items that haven't been analyzed yet, newest published_at first.
  * 按发布时间倒序：新新闻优先分析，避免历史积压（FIFO by id）饿死新数据
  * （抓取量远大于分析吞吐时，id 升序会让新新闻永远排在积压之后）。
- * 仅取最近 90 天（回测窗口上限），更旧的积压视为过期跳过。
+ * 仅取最近 30 天（回测窗口上限），更旧的积压视为过期跳过。
  * LEFT JOIN 已保证幂等，游标参数保留仅为兼容调用方。 */
 export async function getUnanalyzedNews(limit = 50, afterId = 0) {
   const db = await getDb();
-  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const result = await db.execute({
     sql: `
       SELECT n.* FROM news_archive n
@@ -1258,9 +1258,9 @@ export async function getCompanyHeatmap(hoursBack = 24) {
  * Get backtest summary grouped by industry (instead of signal_score).
  * Only returns industries with at least 5 samples.
  */
-export async function getBacktestByIndustry(daysBack = 90) {
+export async function getBacktestByIndustry(daysBack = 30) {
   const db = await getDb();
-  const safeDays = Number.isFinite(daysBack) ? Math.max(1, daysBack) : 90;
+  const safeDays = Number.isFinite(daysBack) ? Math.max(1, daysBack) : 30;
   const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const result = await db.execute({
     sql: `

@@ -373,7 +373,7 @@ export default function ThreadPage({ data: ssgData, error: ssgError }) {
                           </tbody>
                         </table>
                         <p className="text-xs text-muted-foreground mt-2">
-                          信号出现后行业指数平均涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
+                          信号出现后行业指数平均涨跌幅 · 近 30 天 · 胜率 = T+1 上涨样本占比
                         </p>
                       </div>
                     )}

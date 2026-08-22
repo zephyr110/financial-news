@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         (signal as any).companies || [],
         5,
       ),
-      getBacktestByIndustry(90),
+      getBacktestByIndustry(30),
     ]);
 
     // Filter backtest to only show industries relevant to this signal

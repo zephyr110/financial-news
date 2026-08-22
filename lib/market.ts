@@ -144,7 +144,7 @@ const INDUSTRY_ALIASES: Record<string, string> = {
 /**
  * Run backtest: correlate past signals with subsequent market returns.
  */
-export async function runBacktest(daysBack = 90) {
+export async function runBacktest(daysBack = 30) {
   const db = await getDb();
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
 
@@ -282,14 +282,14 @@ export async function getBacktestSummary() {
 }
 
 /**
- * P2.4 线索页市场上下文：线程涉及行业的今日行情 + 近 90 天回测行。
+ * P2.4 线索页市场上下文：线程涉及行业的今日行情 + 近 30 天回测行。
  * 供 /api/thread/[id] 与 thread/[id].tsx SSG 共用（与 signal 详情页同构组装）。
  */
 export async function getThreadMarketContext(industries: string[]) {
   const inds = Array.isArray(industries) ? industries : [];
   const [today, backtest] = await Promise.all([
     getTodayMarketData(20),
-    getBacktestByIndustry(90),
+    getBacktestByIndustry(30),
   ]);
   const matches = (name: string | null | undefined) =>
     !!name && inds.some((ind: string) => name.includes(ind) || ind.includes(name));

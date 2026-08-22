@@ -24,7 +24,7 @@ import {
   deleteAgentSession,
 } from '../lib/db';
 import { runBacktest } from '../lib/market';
-import { startPipelineRun, finishPipelineRun, withPipelineRun, getPipelineHealth } from '../lib/pipeline';
+import { startPipelineRun, finishPipelineRun, withPipelineRun, getPipelineHealth, isJobFresh } from '../lib/pipeline';
 
 const iso = (offsetH = 0) => new Date(Date.now() - offsetH * 3600 * 1000).toISOString();
 
@@ -136,10 +136,10 @@ describe('backtest 幂等（UNIQUE(signal_date, industry) + INSERT OR REPLACE）
     });
     void today;
 
-    await runBacktest(90);
+    await runBacktest(30);
     const first = await db.execute('SELECT COUNT(*) as n FROM backtest_result');
     const before = Number(first.rows[0].n);
-    await runBacktest(90);
+    await runBacktest(30);
     const second = await db.execute('SELECT COUNT(*) as n FROM backtest_result');
     expect(Number(second.rows[0].n)).toBe(before);
 
@@ -343,6 +343,35 @@ describe('pipeline_run 状态机', () => {
     const failRow = await db.execute("SELECT status, error FROM pipeline_run WHERE batch_id = 'batch-fail'");
     expect(failRow.rows[0].status).toBe('failed');
     expect(failRow.rows[0].error).toContain('boom');
+  });
+
+  it('isJobFresh：无成功记录 → false（放行）', async () => {
+    expect(await isJobFresh('fetch', 6 * 3600 * 1000)).toBe(false);
+  });
+
+  it('isJobFresh：距上次成功 < 间隔 → true（跳过）', async () => {
+    const r = await startPipelineRun('fetch', 'fresh-a');
+    await finishPipelineRun(r, { ok: true, items: 1 });
+    expect(await isJobFresh('fetch', 6 * 3600 * 1000)).toBe(true);
+  });
+
+  it('isJobFresh：距上次成功 ≥ 间隔 → false（放行）', async () => {
+    const r = await startPipelineRun('fetch', 'fresh-b');
+    await finishPipelineRun(r, { ok: true, items: 1 });
+    const db = await getDb();
+    // 回拨本用例与 fresh-a 两条成功记录的 finished_at 到 7 小时前（间隔 6h），
+    // 避免 fresh-a 的最近成功覆盖本用例的判定
+    await db.execute({
+      sql: 'UPDATE pipeline_run SET finished_at = ? WHERE job_name = ? AND status = ? AND batch_id IN (?, ?)',
+      args: [iso(7), 'fetch', 'success', 'fresh-a', 'fresh-b'],
+    });
+    expect(await isJobFresh('fetch', 6 * 3600 * 1000)).toBe(false);
+  });
+
+  it('isJobFresh：仅最近一次失败 → false（放行）', async () => {
+    const r = await startPipelineRun('fetch', 'fresh-c');
+    await finishPipelineRun(r, { ok: false, error: 'boom' });
+    expect(await isJobFresh('fetch', 6 * 3600 * 1000)).toBe(false);
   });
 
   it('getPipelineHealth 聚合成功率/耗时/错误', async () => {

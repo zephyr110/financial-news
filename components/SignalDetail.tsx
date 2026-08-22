@@ -199,7 +199,7 @@ export default function SignalDetail({
             行业回测
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            信号出现后行业指数平均涨跌幅 · 过去 90 天 · 胜率 = T+1 上涨样本占比
+            信号出现后行业指数平均涨跌幅 · 过去 30 天 · 胜率 = T+1 上涨样本占比
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

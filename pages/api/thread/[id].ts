@@ -3,7 +3,7 @@ import { getThreadMarketContext } from '../../../lib/market';
 
 /**
  * GET /api/thread/[id] — 事件线索详情（成员信号 + 市场上下文）
- * P2.4：响应含 market（涉及行业今日涨跌）与 backtest（行业近 90 天回测），
+ * P2.4：响应含 market（涉及行业今日涨跌）与 backtest（行业近 30 天回测），
  * 支撑「市场反应」叙事段。
  */
 export default async function handler(req: any, res: any) {

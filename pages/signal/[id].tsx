@@ -168,7 +168,7 @@ export async function getStaticProps({ params }: { params: { id: string } }) {
     // 避免 ISR 首屏出现空白区块（revalidate 期间内容会同步更新）
     const [related, backtest] = await Promise.all([
       getRelatedSignals(signalId, signal.industries || [], signal.companies || [], 5),
-      getBacktestByIndustry(90),
+      getBacktestByIndustry(30),
     ]);
 
     const signalIndustries: string[] = signal.industries || [];
