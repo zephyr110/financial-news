@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, MessageSquarePlus, Trash2 } from "lucide-react";
 import {
   SidebarGroup,
@@ -8,7 +8,6 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   useSidebar,
 } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -27,8 +26,8 @@ function relTime(iso) {
 
 /**
  * 研究助手页侧栏分组：历史会话（sidebar-07 折叠分区模式）。
- * 搜索过滤 → 会话列表（删除二次确认）→ 新对话入口。
- * icon rail 折叠时隐藏搜索/列表，保留新对话 icon 按钮（tooltip 提示）。
+ * 顶栏：新对话 + 可展开搜索（默认仅图标）；下方会话列表。
+ * icon rail 折叠时仅保留新对话入口。
  */
 export default function SessionSidebarGroup({
   sessions,
@@ -40,8 +39,9 @@ export default function SessionSidebarGroup({
   onDelete,
 }) {
   const { setOpenMobile } = useSidebar();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
 
-  // 移动端选择会话后关闭抽屉（桌面端无副作用）
   const closeOnMobile = () => setOpenMobile(false);
 
   const q = query.trim().toLowerCase();
@@ -49,7 +49,6 @@ export default function SessionSidebarGroup({
     ? sessions.filter((s) => (s.title ?? "").toLowerCase().includes(q))
     : sessions;
 
-  // 删除二次确认：点击垃圾桶进入确认态（红色），再点才真正删除；3 秒不操作还原
   const [confirmingId, setConfirmingId] = useState(null);
   const confirmTimer = useRef(null);
   const armDelete = (id) => {
@@ -58,20 +57,86 @@ export default function SessionSidebarGroup({
     confirmTimer.current = setTimeout(() => setConfirmingId(null), 3000);
   };
 
+  const openSearch = () => setSearchOpen(true);
+
+  const closeSearch = () => {
+    if (!query.trim()) setSearchOpen(false);
+  };
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  // 有搜索词时保持展开，避免输入后误触收起看不见关键词
+  useEffect(() => {
+    if (query.trim()) setSearchOpen(true);
+  }, [query]);
+
+  const handleNew = () => {
+    onNew();
+    closeOnMobile();
+  };
+
   return (
     <SidebarGroup className="min-h-0 flex-1">
       <SidebarGroupLabel>历史会话</SidebarGroupLabel>
 
-      {/* 折叠 icon rail 时隐藏搜索与列表（新对话入口保留） */}
+      {/* 展开态：新对话 + 可展开搜索 + 列表 */}
       <div className="flex min-h-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-        <div className="relative mb-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <SidebarInput
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder="搜索会话…"
-            className="pl-8 text-xs"
-          />
+        <div className="relative mb-2 flex h-8 items-center gap-1">
+          <button
+            type="button"
+            onClick={handleNew}
+            aria-hidden={searchOpen}
+            tabIndex={searchOpen ? -1 : 0}
+            className={cn(
+              "flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border border-sidebar-border px-2 text-xs font-medium",
+              "text-sidebar-foreground transition-opacity",
+              "hover:bg-sidebar-primary/10 hover:text-sidebar-primary",
+              "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-sidebar-primary",
+              searchOpen && "pointer-events-none opacity-0"
+            )}
+          >
+            <MessageSquarePlus />
+            <span className="truncate">新对话</span>
+          </button>
+
+          {!searchOpen && (
+            <button
+              type="button"
+              onClick={openSearch}
+              className={cn(
+                "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground",
+                "transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              )}
+              aria-label="搜索会话"
+            >
+              <Search className="size-4" />
+            </button>
+          )}
+
+          {searchOpen && (
+            <div className="absolute inset-0 z-10 flex items-center">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <SidebarInput
+                ref={searchInputRef}
+                value={query}
+                onChange={(e) => onQuery(e.target.value)}
+                onBlur={closeSearch}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    if (query.trim()) onQuery("");
+                    else setSearchOpen(false);
+                    searchInputRef.current?.blur();
+                  }
+                }}
+                placeholder="搜索会话…"
+                className="h-8 w-full pl-8 text-xs"
+                aria-label="搜索会话"
+              />
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -131,24 +196,11 @@ export default function SessionSidebarGroup({
         </div>
       </div>
 
-      <SidebarSeparator className="group-data-[collapsible=icon]:hidden" />
-
-      <SidebarMenu className="pt-1">
+      {/* 折叠 icon rail：仅新对话 */}
+      <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
         <SidebarMenuItem>
-          <SidebarMenuButton
-            variant="outline"
-            tooltip="新对话"
-            onClick={() => {
-              onNew();
-              closeOnMobile();
-            }}
-            className={cn(
-              "font-medium text-sidebar-foreground shadow-none",
-              "hover:bg-sidebar-primary/10 hover:text-sidebar-primary",
-              "[&_svg]:text-sidebar-primary"
-            )}
-          >
-            <MessageSquarePlus />
+          <SidebarMenuButton tooltip="新对话" onClick={handleNew}>
+            <MessageSquarePlus className="text-sidebar-primary" />
             <span>新对话</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

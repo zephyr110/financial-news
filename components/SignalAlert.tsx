@@ -109,7 +109,7 @@ function showNotification(critical: any[]) {
   try {
     new Notification(`财经信号 · ${critical.length} 条重要预警`, {
       body,
-      icon: "/favicon.svg",
+      icon: "/favicon-light.png",
       tag: "financial-signals-alert",
     });
   } catch {

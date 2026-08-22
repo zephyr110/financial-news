@@ -15,6 +15,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "./ui/sidebar";
+import BrandLogo from "./BrandLogo";
 import ThemeToggle from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ export default function AppSidebar({ sidebarExtra = null, ...props }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" className="no-underline" />}>
-              <img src="/favicon.svg" alt="财经信号" className="size-7 shrink-0" />
+              <BrandLogo className="size-7" />
               <span className="truncate text-base font-semibold tracking-tight text-sidebar-foreground">
                 财经信号
               </span>
@@ -116,7 +117,7 @@ export default function AppSidebar({ sidebarExtra = null, ...props }) {
                   className="size-8 shrink-0 text-muted-foreground hover:text-sidebar-accent-foreground"
                   render={
                     <a
-                      href="https://github.com/zephyr110/financial-news"
+                      href="https://github.com/zephyr110/financial-signal"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="no-underline"

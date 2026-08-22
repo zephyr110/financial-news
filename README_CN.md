@@ -1,8 +1,10 @@
 <p align="right"><a href="./README.md">English</a></p>
 
-# 财经信号
+# 财经信号 (Financial Signal)
 
 AI 驱动的财经新闻聚合与政策-行业信号分析引擎。
+
+仓库：[github.com/zephyr110/financial-signal](https://github.com/zephyr110/financial-signal)
 
 **在线 Demo：** [https://financial-news-nine.vercel.app](https://financial-news-nine.vercel.app)
 
@@ -75,7 +77,7 @@ pnpm typecheck  # tsc --noEmit
 
 ## 部署
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-signal)
 
 1. [Turso](https://turso.tech) 创建数据库
 2. Vercel 配置环境变量：`LLM_API_KEY`、`CRON_SECRET`、`TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`
