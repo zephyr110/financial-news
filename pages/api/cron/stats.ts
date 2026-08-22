@@ -7,7 +7,7 @@ import { assertCronAuth } from '../../../lib/cronAuth';
  * GET /api/cron/stats
  */
 export default async function handler(req, res) {
-  if (!assertCronAuth(req, res)) return;
+  if (!await assertCronAuth(req, res)) return;
 
   try {
     const dbStats = await getDbCounts();

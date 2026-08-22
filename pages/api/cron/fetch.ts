@@ -10,7 +10,7 @@ import { defaultBatchId, withPipelineRun } from '../../../lib/pipeline';
  * Set CRON_SECRET env var, call with ?token=<CRON_SECRET>
  */
 export default async function handler(req, res) {
-  if (!assertCronAuth(req, res)) return;
+  if (!await assertCronAuth(req, res)) return;
 
   try {
     const batchId = typeof req.query.batch === 'string' ? req.query.batch : defaultBatchId();

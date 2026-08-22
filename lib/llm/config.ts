@@ -1,3 +1,5 @@
+import { getSetting, SETTING_KEYS } from '../settings';
+
 /**
  * LLM Provider Configuration — Analyzer seam（spec §10.2 原则1）
  *
@@ -36,6 +38,23 @@ export function getChatCompletionsUrl() {
   if (base.endsWith('/chat/completions')) return base;
   if (base.endsWith('/v1')) return `${base}/chat/completions`;
   return `${base}/v1/chat/completions`;
+}
+
+/**
+ * 生效中的 LLM 配置：设置弹窗写入的运行时值优先，其次环境变量。
+ * 每次请求读取（带 30s 缓存），改设置在设置弹窗保存后即可热生效，无需重启。
+ */
+export async function getEffectiveLlmConfig() {
+  const [model, baseUrl, apiKey] = await Promise.all([
+    getSetting(SETTING_KEYS.LLM_MODEL),
+    getSetting(SETTING_KEYS.LLM_BASE_URL),
+    getSetting(SETTING_KEYS.LLM_API_KEY),
+  ]);
+  return {
+    apiKey: apiKey || LLM_CONFIG.apiKey,
+    baseUrl: (baseUrl || LLM_CONFIG.baseUrl).replace(/\/+$/, ''),
+    model: model || LLM_CONFIG.model,
+  };
 }
 
 /**

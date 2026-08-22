@@ -1,10 +1,20 @@
+import { getSetting, SETTING_KEYS } from './settings';
+
 /**
  * Protect cron/admin endpoints with CRON_SECRET.
  * Accepts ?token= or Authorization: Bearer (Vercel Cron sends the latter).
- * In production/Vercel, CRON_SECRET must be set.
+ * Secret resolution order: 设置弹窗（app_settings 表，30s 缓存）→ 环境变量 CRON_SECRET。
+ * In production/Vercel, a secret must be configured somewhere.
  */
-export function assertCronAuth(req, res) {
-  const cronSecret = process.env.CRON_SECRET;
+export async function assertCronAuth(req, res) {
+  let cronSecret;
+  try {
+    cronSecret = (await getSetting(SETTING_KEYS.CRON_SECRET)) || process.env.CRON_SECRET;
+  } catch {
+    // settings 表不可用（未迁移/DB 异常）时降级为环境变量
+    cronSecret = process.env.CRON_SECRET;
+  }
+
   if (!cronSecret) {
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
       res.status(503).json({ error: 'CRON_SECRET not configured' });
