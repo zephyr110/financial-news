@@ -40,12 +40,7 @@ export default function EmptyState({
         {description}
       </p>
 
-      {refreshing ? (
-        <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          正在加载最新快讯…
-        </p>
-      ) : (
+      {!refreshing && (
         <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="relative flex h-1.5 w-1.5" aria-hidden>
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-50" />

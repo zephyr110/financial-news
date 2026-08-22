@@ -83,28 +83,33 @@ export default function SessionSidebarGroup({
 
       {/* 展开态：新对话 + 可展开搜索 + 列表 */}
       <div className="flex min-h-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-        <div className="relative mb-2 flex h-8 items-center gap-1">
-          <button
-            type="button"
-            onClick={handleNew}
-            aria-hidden={searchOpen}
-            tabIndex={searchOpen ? -1 : 0}
+        <div className="relative mb-2 h-8">
+          {/* 收起态：新对话 + 搜索图标（展开时淡出上移，隐藏焦点与指针） */}
+          <div
             className={cn(
-              "flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border border-sidebar-border px-2 text-xs font-medium",
-              "text-sidebar-foreground transition-opacity",
-              "hover:bg-sidebar-primary/10 hover:text-sidebar-primary",
-              "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-sidebar-primary",
-              searchOpen && "pointer-events-none opacity-0"
+              "flex h-8 items-center gap-1 transition-all duration-300 ease-in-out",
+              searchOpen && "pointer-events-none -translate-y-1 opacity-0"
             )}
+            aria-hidden={searchOpen}
           >
-            <MessageSquarePlus />
-            <span className="truncate">新对话</span>
-          </button>
-
-          {!searchOpen && (
+            <button
+              type="button"
+              onClick={handleNew}
+              tabIndex={searchOpen ? -1 : 0}
+              className={cn(
+                "flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border border-sidebar-border px-2 text-xs font-medium",
+                "text-sidebar-foreground transition-opacity",
+                "hover:bg-sidebar-primary/10 hover:text-sidebar-primary",
+                "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-sidebar-primary"
+              )}
+            >
+              <MessageSquarePlus />
+              <span className="truncate">新对话</span>
+            </button>
             <button
               type="button"
               onClick={openSearch}
+              tabIndex={searchOpen ? -1 : 0}
               className={cn(
                 "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground",
                 "transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -114,29 +119,35 @@ export default function SessionSidebarGroup({
             >
               <Search className="size-4" />
             </button>
-          )}
+          </div>
 
-          {searchOpen && (
-            <div className="absolute inset-0 z-10 flex items-center">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <SidebarInput
-                ref={searchInputRef}
-                value={query}
-                onChange={(e) => onQuery(e.target.value)}
-                onBlur={closeSearch}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    if (query.trim()) onQuery("");
-                    else setSearchOpen(false);
-                    searchInputRef.current?.blur();
-                  }
-                }}
-                placeholder="搜索会话…"
-                className="h-8 w-full pl-8 text-xs"
-                aria-label="搜索会话"
-              />
-            </div>
-          )}
+          {/* 展开态：搜索输入框（收起时淡出下移，避免遮挡新对话行） */}
+          <div
+            className={cn(
+              "absolute inset-0 z-10 flex items-center transition-all duration-300 ease-in-out",
+              !searchOpen && "pointer-events-none translate-y-1 opacity-0"
+            )}
+            aria-hidden={!searchOpen}
+          >
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <SidebarInput
+              ref={searchInputRef}
+              value={query}
+              tabIndex={searchOpen ? 0 : -1}
+              onChange={(e) => onQuery(e.target.value)}
+              onBlur={closeSearch}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  if (query.trim()) onQuery("");
+                  else setSearchOpen(false);
+                  searchInputRef.current?.blur();
+                }
+              }}
+              placeholder="搜索会话…"
+              className="h-8 w-full pl-8 text-xs"
+              aria-label="搜索会话"
+            />
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

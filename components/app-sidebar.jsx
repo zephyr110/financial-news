@@ -12,7 +12,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
   useSidebar,
 } from "./ui/sidebar";
 import BrandLogo from "./BrandLogo";
@@ -97,47 +96,37 @@ export default function AppSidebar({ sidebarExtra = null, ...props }) {
       </SidebarContent>
 
       <SidebarFooter className="gap-0 p-0">
-        <SidebarSeparator />
+        {/* 纵向布局：GitHub → 版本号 → 主题（无分割线） */}
         <SidebarMenu className="px-2 py-2">
           <SidebarMenuItem>
-            <div
-              className={cn(
-                "flex w-full items-center justify-between gap-2",
-                "group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1"
-              )}
-            >
-              <div
+            <div className="flex w-full flex-col items-stretch gap-1.5 group-data-[collapsible=icon]:items-center">
+              <SidebarMenuButton
+                tooltip="GitHub 源码"
+                className="h-8 justify-start text-xs text-muted-foreground hover:text-sidebar-accent-foreground"
+                render={
+                  <a
+                    href="https://github.com/zephyr110/financial-signal"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="no-underline"
+                    aria-label="GitHub 源码"
+                  />
+                }
+              >
+                <GithubIcon />
+                <span className="group-data-[collapsible=icon]:hidden">GitHub 源码</span>
+              </SidebarMenuButton>
+              <span
                 className={cn(
-                  "flex min-w-0 items-center gap-1.5",
-                  "group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1"
+                  "rounded-md bg-sidebar-accent/50 px-1.5 py-0.5 text-center text-[10px] font-medium tabular-nums text-muted-foreground",
+                  "group-data-[collapsible=icon]:hidden"
                 )}
               >
-                <SidebarMenuButton
-                  tooltip="GitHub 源码"
-                  className="size-8 shrink-0 text-muted-foreground hover:text-sidebar-accent-foreground"
-                  render={
-                    <a
-                      href="https://github.com/zephyr110/financial-signal"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="no-underline"
-                      aria-label="GitHub 源码"
-                    />
-                  }
-                >
-                  <GithubIcon />
-                  <span className="sr-only">GitHub</span>
-                </SidebarMenuButton>
-                <span
-                  className={cn(
-                    "rounded-md bg-sidebar-accent/50 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground",
-                    "group-data-[collapsible=icon]:hidden"
-                  )}
-                >
-                  v2.0.0
-                </span>
+                v2.0.0
+              </span>
+              <div className="flex justify-center">
+                <ThemeToggle />
               </div>
-              <ThemeToggle />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>

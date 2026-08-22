@@ -14,3 +14,4 @@ docs/
 tsconfig.tsbuildinfo
 
 bk.md
+.vercel
