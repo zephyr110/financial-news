@@ -352,19 +352,23 @@ export async function updateDeepAnalysis(newsId, { industries, companies, tags, 
   });
 }
 
-/** Get news items that haven't been analyzed yet, ascending by id (FIFO).
- * 与游标（afterId）配合：积压先处理旧的，游标单调推进；幂等保证重跑安全。 */
+/** Get news items that haven't been analyzed yet, newest published_at first.
+ * 按发布时间倒序：新新闻优先分析，避免历史积压（FIFO by id）饿死新数据
+ * （抓取量远大于分析吞吐时，id 升序会让新新闻永远排在积压之后）。
+ * 仅取最近 90 天（回测窗口上限），更旧的积压视为过期跳过。
+ * LEFT JOIN 已保证幂等，游标参数保留仅为兼容调用方。 */
 export async function getUnanalyzedNews(limit = 50, afterId = 0) {
   const db = await getDb();
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const result = await db.execute({
     sql: `
       SELECT n.* FROM news_archive n
       LEFT JOIN analysis_result a ON a.news_id = n.id
-      WHERE a.id IS NULL AND n.id > ?
-      ORDER BY n.id ASC
+      WHERE a.id IS NULL AND n.published_at >= ?
+      ORDER BY n.published_at DESC
       LIMIT ?
     `,
-    args: [afterId, limit],
+    args: [since, limit],
   });
   return result.rows;
 }

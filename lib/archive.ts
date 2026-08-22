@@ -20,10 +20,12 @@ function normalizeSinaItem(item) {
   const published = item.create_time
     ? toIsoOrNow(item.create_time.replace(' ', 'T') + '+08:00')
     : new Date().toISOString();
+  // sina 直播流条目无独立 title 字段，标题包裹在 rich_text 的【】中
+  const titleMatch = String(item.rich_text || '').match(/^【(.+?)】/);
   return {
     source: 'sina',
     source_id: String(item.id),
-    title: null,
+    title: titleMatch ? titleMatch[1] : null,
     content: item.rich_text,
     published_at: published,
     docurl: item.docurl || null,
