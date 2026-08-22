@@ -106,7 +106,7 @@ export default function AvatarMenu() {
 
             {/* 主题切换：segmented 按钮组（与 zlog 一致，非子菜单） */}
             <div className="flex flex-col gap-1.5 px-0.5">
-              <p className="px-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+              <p className="px-1.5 text-xs font-medium text-muted-foreground">
                 主题
               </p>
               <div className="inline-flex w-full rounded-lg bg-muted/50 p-1">
@@ -149,7 +149,8 @@ export default function AvatarMenu() {
                 GitHub
               </DropdownMenuItem>
               <DropdownMenuItem
-                className="cursor-pointer gap-2.5 rounded-md px-2.5 py-2 text-destructive hover:bg-destructive/10 data-highlighted:bg-destructive/10 data-highlighted:text-destructive"
+                variant="destructive"
+                className="cursor-pointer gap-2.5 rounded-md px-2.5 py-2 hover:bg-destructive/10 dark:hover:bg-destructive/20 data-highlighted:bg-destructive/10 dark:data-highlighted:bg-destructive/20"
                 onClick={logout}
                 disabled={loggingOut}
               >

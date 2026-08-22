@@ -14,6 +14,7 @@ import { LLM_CONFIG } from '../llm/config';
 import type { AgentTurnResult } from './types';
 import { getTool, buildToolPrompt } from './tools';
 import { loadAgentContext } from './session';
+import { extractJson, repairJson, formatFinalAnswer, validateToolArgs } from './format';
 
 /** 单轮最大步数（LLM 调用次数），防止失控循环 */
 const MAX_STEPS = 8;
@@ -37,18 +38,33 @@ export const AGENT_SYSTEM_PROMPT = `你是一个A股政策-行业研究助手（
 
 export function tryParseToolCall(content: string): { tool?: string; args?: Record<string, unknown> } | null {
   // 兼容 ```json 代码块包裹
-  const trimmed = content.trim();
-  const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = (match ? match[1] : trimmed).trim();
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && typeof parsed.tool === 'string') {
-      return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+  const trimmed = (content || '').trim();
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidates = [fence ? fence[1].trim() : null, trimmed].filter(Boolean) as string[];
+  for (const raw of candidates) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && typeof parsed.tool === 'string') {
+        return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+      }
+    } catch {
+      // 落修复路径
     }
-    return null;
-  } catch {
-    return null;
   }
+  // 后校正：模型输出的 JSON 可能带尾逗号/单引号/未引号 key 或截断。
+  // 仅当修复后解析出 tool 字段才视为工具调用，避免误伤纯文本回答。
+  const repaired = repairJson(trimmed);
+  if (repaired !== null && repaired !== trimmed) {
+    try {
+      const parsed = JSON.parse(repaired);
+      if (parsed && typeof parsed === 'object' && typeof parsed.tool === 'string') {
+        return { tool: parsed.tool, args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+      }
+    } catch {
+      // 放弃
+    }
+  }
+  return null;
 }
 
 export interface RunTurnOptions {
@@ -143,17 +159,27 @@ export async function runAgentTurn(input: RunTurnOptions): Promise<AgentTurnResu
 
       const toolCall = tryParseToolCall(contentText);
       if (!toolCall?.tool) {
-        // 最终回答
-        reply = contentText;
+        // 最终回答：确定性出口管道（截断检测 → markdown 修复 → 截断诚实标注）
+        const formatted = formatFinalAnswer(contentText);
+        reply = formatted.text;
         await appendAgentMessage(sessionId, 'assistant', reply);
         await touchAgentSession(sessionId);
-        emit({ type: 'done', sessionId, reply, steps: steps + 1, toolLog, truncated: false, userMessageId });
-        return { sessionId, reply, steps: steps + 1, toolLog, truncated: false, userMessageId };
+        emit({ type: 'done', sessionId, reply, steps: steps + 1, toolLog, truncated: formatted.truncated, userMessageId });
+        return { sessionId, reply, steps: steps + 1, toolLog, truncated: formatted.truncated, userMessageId };
       }
 
       const tool = getTool(toolCall.tool);
       if (!tool) {
         const feedback = `【工具不存在】工具 "${toolCall.tool}" 未注册。可用工具：${buildToolPrompt().split('\n').map((l) => l.split(':')[0]).join(', ')}。请重试。`;
+        turnMessages.push({ role: 'user', content: feedback });
+        await appendAgentMessage(sessionId, 'user', feedback);
+        continue;
+      }
+
+      // 参数前校验：必填缺失/明显类型错误直接回喂模型重试，不执行无效调用
+      const argError = validateToolArgs(tool, toolCall.args || {});
+      if (argError) {
+        const feedback = `【参数错误】工具 "${tool.name}" 参数无效：${argError}。请按参数 schema 重新构造：{"tool":"${tool.name}","args":{...}}。`;
         turnMessages.push({ role: 'user', content: feedback });
         await appendAgentMessage(sessionId, 'user', feedback);
         continue;

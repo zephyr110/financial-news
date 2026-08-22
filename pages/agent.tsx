@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, isValidElement } from "react";
 import Head from "next/head";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight, Copy, Check, Share2, Pencil, X } from "lucide-react";
 import AppShell from "../components/app-shell";
 import SessionSidebarGroup from "../components/SessionSidebarGroup";
+import AgentCodeBlock from "../components/agent-code-block";
 import { Button } from "../components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "../components/ui/alert";
 import { Textarea } from "../components/ui/textarea";
@@ -583,7 +584,7 @@ export default function AgentPage() {
                   <div
                     key={m.id}
                     className={cn(
-                      "flex gap-3",
+                      "group flex gap-3",
                       isUser ? "justify-end" : "items-start justify-start"
                     )}
                   >
@@ -594,7 +595,7 @@ export default function AgentPage() {
                     )}
                     <div
                       className={cn(
-                        "max-w-[85%] text-sm group",
+                        "max-w-[85%] text-sm",
                         isUser
                           ? // 用户气泡：primary 蓝（明暗主题自适应）+ 右上角直角，其余三角保持圆角
                             "leading-relaxed rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
@@ -646,53 +647,6 @@ export default function AgentPage() {
                       ) : (
                         <div className="whitespace-pre-wrap">{m.content}</div>
                       )}
-                      {isUser && !isEditing && (
-                        <div
-                          className={cn(
-                            "mt-1 flex justify-end gap-0.5",
-                            // 桌面 hover 显示；触屏（hover 不可用）常显
-                            "opacity-0 transition-opacity group-hover:opacity-100 hover-none:opacity-100"
-                          )}
-                        >
-                          {editable && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingDraft(m.content);
-                                setEditingId(m.id);
-                              }}
-                              disabled={loading}
-                              className={cn(
-                                "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-primary-foreground/80",
-                                "transition-colors hover:bg-primary-foreground/10",
-                                loading && "opacity-40"
-                              )}
-                              aria-label="编辑消息"
-                            >
-                              <Pencil className="size-3.5" />
-                              编辑
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => void copyMessage(m.id, m.content)}
-                            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-primary-foreground/80 transition-colors hover:bg-primary-foreground/10"
-                            aria-label="复制消息"
-                          >
-                            {copiedId === m.id ? (
-                              <>
-                                <Check className="size-3.5" />
-                                已复制
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="size-3.5" />
-                                复制
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
                       {!isUser && (
                         <>
                           <div className="markdown-body">
@@ -703,6 +657,17 @@ export default function AgentPage() {
                                 a: ({ node: _node, ...props }) => (
                                   <a {...props} target="_blank" rel="noopener noreferrer" />
                                 ),
+                                // 代码块：参考 zlog CodeBlock——顶栏（语言标签 + 复制）+ 圆角容器
+                                pre: ({ node: _node, children }) => {
+                                  const codeEl = isValidElement(children) ? children : null;
+                                  const cls = (codeEl?.props as { className?: string } | undefined)?.className ?? "";
+                                  const lang = (cls.match(/language-([\w-]+)/) || [])[1] || "";
+                                  return (
+                                    <AgentCodeBlock lang={lang}>
+                                      {(codeEl?.props as { children?: unknown } | undefined)?.children ?? children}
+                                    </AgentCodeBlock>
+                                  );
+                                },
                               }}
                             >
                               {m.content}
@@ -764,6 +729,49 @@ export default function AgentPage() {
                         </div>
                       )}
                     </div>
+                    {/* 用户气泡操作按钮：在气泡外部右侧、底部对齐
+                        （桌面 hover 显示；触屏 hover 不可用则常显） */}
+                    {isUser && !isEditing && (
+                      <div className="flex shrink-0 flex-col justify-end gap-0.5 self-end opacity-0 transition-opacity group-hover:opacity-100 hover-none:opacity-100">
+                        {editable && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDraft(m.content);
+                              setEditingId(m.id);
+                            }}
+                            disabled={loading}
+                            className={cn(
+                              "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground",
+                              "transition-colors hover:bg-accent hover:text-foreground",
+                              loading && "opacity-40"
+                            )}
+                            aria-label="编辑消息"
+                          >
+                            <Pencil className="size-3.5" />
+                            编辑
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void copyMessage(m.id, m.content)}
+                          className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          aria-label="复制消息"
+                        >
+                          {copiedId === m.id ? (
+                            <>
+                              <Check className="size-3.5 text-emerald-500" />
+                              已复制
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="size-3.5" />
+                              复制
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

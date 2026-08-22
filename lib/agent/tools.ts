@@ -6,6 +6,7 @@
  */
 import type { ToolDefinition } from './types';
 import { searchSignals, getEventThreads, getEventThreadById, getIndustryHeatmap, getIndustryTrend, getBacktestByIndustry } from '../db';
+import { fixMarkdown, repairJson } from './format';
 
 /** 简洁化工具输出：限制文本长度，避免撑爆上下文 */
 function summarizeList(rows, fields, limit = 10) {
@@ -146,6 +147,35 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
         `关注点: ${(thread.watch_points || []).join('；') || '无'}`,
         `\n关联信号（${thread.signals.length}条）:\n${signalLines || '无'}`,
       ].join('\n');
+    },
+  },
+  {
+    name: 'format_markdown',
+    description:
+      '把草稿文本整理为规范的 Markdown（修复未闭合代码块围栏、多余空行、行尾空白等语法问题）。' +
+      '在最终回答较长、包含代码块或表格时，先调用本工具整理草稿，再把整理结果作为最终回答输出。',
+    parameters: {
+      type: 'object',
+      properties: { text: { type: 'string', description: '需要整理的原始草稿文本' } },
+      required: ['text'],
+    },
+    async execute(args) {
+      return fixMarkdown(String(args.text ?? ''));
+    },
+  },
+  {
+    name: 'fix_json',
+    description:
+      '修复一段损坏或截断的 JSON 字符串（尾逗号、单引号、未加引号的键、括号未闭合等），返回修复后的 JSON。' +
+      '用于处理从外部拿到的、无法直接解析的 JSON 数据。无法修复时返回明确错误提示。',
+    parameters: {
+      type: 'object',
+      properties: { json: { type: 'string', description: '损坏的 JSON 文本' } },
+      required: ['json'],
+    },
+    async execute(args) {
+      const fixed = repairJson(String(args.json ?? ''));
+      return fixed ?? '无法修复该 JSON，请检查内容或向用户索取完整数据。';
     },
   },
 ];
