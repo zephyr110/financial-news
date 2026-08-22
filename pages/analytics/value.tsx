@@ -46,7 +46,7 @@ export default function ValueReportPage() {
       </Head>
 
       <AppShell title="价值验证报告">
-        <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
+        <div className="mx-auto flex min-h-full max-w-[720px] lg:max-w-[960px] flex-col px-4 sm:px-6 pb-12 pt-8">
           <div className="flex items-center gap-2 mb-6">
             <BarChart3 className="h-5 w-5 text-primary" />
             <h1 className="text-base sm:text-lg font-semibold text-foreground">
@@ -58,7 +58,7 @@ export default function ValueReportPage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">计算中…</span>
             </div>

@@ -269,6 +269,7 @@ export async function getBacktestSummary() {
               COUNT(*) as samples,
               COALESCE(ROUND(AVG(day_1_return), 2), 0) as avg_d1,
               COALESCE(ROUND(AVG(day_3_return), 2), 0) as avg_d3,
+              COALESCE(ROUND(AVG(day_7_return), 2), 0) as avg_d7,
               ROUND(SUM(CASE WHEN day_1_return > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as win_rate
             FROM backtest_result
             WHERE day_1_return IS NOT NULL

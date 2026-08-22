@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, Building2, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBacktestTier, shouldShowNumbers, tierProgress, TIER_LABELS, type BacktestTier } from "@/lib/backtest";
+import { getBacktestTier, shouldShowNumbers, tierProgress, type BacktestTier } from "@/lib/backtest";
 
 interface BacktestRow {
   signal_score?: number;
@@ -14,6 +14,10 @@ interface BacktestRow {
 }
 
 type TabKey = "score" | "industry";
+
+// 表格网格列模板：1fr 行业 | 48px 分数 | 88px 样本 | 3×涨跌幅 | 80px 胜率（表头与两种行共用，改列宽需同步）
+const HEADER_GRID = "hidden sm:grid grid-cols-[1fr_48px_88px_repeat(3,1fr)_80px]";
+const ROW_GRID = "grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_88px_repeat(3,1fr)_80px]";
 
 export default function BacktestPanel() {
   const [byScore, setByScore] = useState<BacktestRow[] | null>(null);
@@ -80,7 +84,7 @@ export default function BacktestPanel() {
         <div className="overflow-hidden min-h-0">
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t pt-3">
           {loading ? (
-            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+            <div className="flex min-h-28 items-center justify-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-xs">加载中…</span>
             </div>
@@ -121,9 +125,10 @@ export default function BacktestPanel() {
               </div>
 
               {/* Header */}
-              <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-xs text-muted-foreground px-1">
+              <div className={cn(HEADER_GRID, "gap-2 mb-1 text-xs text-muted-foreground px-1")}>
                 <span>{tab === "industry" ? "行业" : "分数"}</span>
                 <span>{tab === "industry" ? "均分" : ""}</span>
+                <span>样本</span>
                 <span>T+1</span>
                 <span>T+3</span>
                 <span>T+7</span>
@@ -135,34 +140,23 @@ export default function BacktestPanel() {
                 (byIndustry as BacktestRow[])
                   ?.sort((a, b) => b.samples - a.samples)
                   .slice(0, 15)
-                  .map((row, i) => {
+                  .map((row) => {
                     // P2.3 可信度分层：样本不足只显示行业名 + 进度（不展示数字，R4 只改展示不改数据）
                     const tier = getBacktestTier(row.samples);
                     const showNumbers = shouldShowNumbers(tier);
                     return (
                       <div
                         key={`${row.industry}-${row.signal_score}`}
-                        className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
+                        className={cn(ROW_GRID, "gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors")}
                       >
                         <span className="text-xs font-medium text-foreground truncate">
                           {row.industry}
-                          <span
-                            className={cn(
-                              "ml-1.5 text-xs px-1 py-0.5 rounded align-middle",
-                              tier === "sufficient"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
-                                : tier === "reference"
-                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                                  : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {tier === "accumulating" ? tierProgress(row.samples) : TIER_LABELS[tier]}
-                          </span>
                         </span>
                         <ScoreBadge score={row.signal_score} />
+                        <SampleCell samples={row.samples} tier={tier} />
                         <div className="sm:hidden text-xs text-muted-foreground">
                           {showNumbers
-                            ? `T+1 ${fmtPct(row.avg_d1, tier)} · T+3 ${fmtPct(row.avg_d3, tier)} · T+7 ${fmtPct(row.avg_d7, tier)}`
+                            ? `${tier === "reference" ? "~" : ""}样本 ${row.samples} · T+1 ${fmtPct(row.avg_d1, tier)} · T+3 ${fmtPct(row.avg_d3, tier)} · T+7 ${fmtPct(row.avg_d7, tier)}`
                             : tierProgress(row.samples)}
                         </div>
                         <ReturnCell value={row.avg_d1} show={showNumbers} tier={tier} />
@@ -177,28 +171,54 @@ export default function BacktestPanel() {
               {tab === "score" &&
                 (byScore as BacktestRow[])
                   ?.sort((a, b) => (b.signal_score ?? 0) - (a.signal_score ?? 0))
-                  .map((row, i) => (
-                    <div
-                      key={`score-${row.signal_score ?? "null"}-${i}`}
-                      className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
-                    >
-                      <ScoreBadge score={row.signal_score} />
-                      <span className="w-6" />
-                      <div className="sm:hidden text-xs text-muted-foreground">
-                        T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}
+                  .map((row, i) => {
+                    // 分数组同样受分层约束：样本不足不展示收益/胜率数字
+                    const tier = getBacktestTier(row.samples);
+                    const showNumbers = shouldShowNumbers(tier);
+                    return (
+                      <div
+                        key={`score-${row.signal_score ?? "null"}-${i}`}
+                        className={cn(ROW_GRID, "gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors")}
+                      >
+                        <ScoreBadge score={row.signal_score} />
+                        <span className="w-6" />
+                        <SampleCell samples={row.samples} tier={tier} />
+                        <div className="sm:hidden text-xs text-muted-foreground">
+                          {showNumbers
+                            ? `${tier === "reference" ? "~" : ""}样本 ${row.samples} · T+1 ${fmtPct(row.avg_d1, tier)} · T+3 ${fmtPct(row.avg_d3, tier)} · T+7 ${fmtPct(row.avg_d7, tier)}`
+                            : tierProgress(row.samples)}
+                        </div>
+                        <ReturnCell value={row.avg_d1} show={showNumbers} tier={tier} />
+                        <ReturnCell value={row.avg_d3} show={showNumbers} tier={tier} />
+                        <ReturnCell value={row.avg_d7} show={showNumbers} tier={tier} />
+                        <WinRateCell rate={row.win_rate} show={showNumbers} tier={tier} />
                       </div>
-                      <ReturnCell value={row.avg_d1} />
-                      <ReturnCell value={row.avg_d3} />
-                      <ReturnCell value={row.avg_d7} />
-                      <WinRateCell rate={row.win_rate} />
-                    </div>
-                  ))}
+                    );
+                  })}
             </>
           )}
         </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/** 样本列：充足=绿徽章数字、参考=琥珀 ~数字（与行内 ~ 约定一致）、积累=灰进度。 */
+function SampleCell({ samples, tier }: { samples: number; tier: BacktestTier }) {
+  return (
+    <span
+      className={cn(
+        "hidden sm:inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
+        tier === "sufficient" &&
+          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+        tier === "reference" &&
+          "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+        tier === "accumulating" && "bg-muted text-muted-foreground"
+      )}
+    >
+      {tier === "accumulating" ? tierProgress(samples) : tier === "reference" ? `~${samples}` : samples}
+    </span>
   );
 }
 
