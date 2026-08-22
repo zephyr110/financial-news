@@ -98,6 +98,33 @@ describe('runAgentTurn', () => {
     expect(db.appendAgentMessage.mock.calls.some((c) => c[2].includes('工具不存在'))).toBe(true);
   });
 
+  it('参数前校验：缺必填参数 → 回喂模型重试', async () => {
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"search_news","args":{}}' })
+      .mockResolvedValueOnce({ content: '{"tool":"search_news","args":{"query":"存储"}}' })
+      .mockResolvedValueOnce({ content: '存储行业近期有 5 条信号。' });
+
+    const result = await runAgentTurn({ userMessage: '存储' });
+
+    expect(result.steps).toBe(3);
+    expect(result.toolLog).toHaveLength(1); // 只有第二次（合法）调用执行了工具
+    expect(result.reply).toContain('存储行业');
+    expect(db.appendAgentMessage.mock.calls.some((c) => c[2].includes('参数错误'))).toBe(true);
+  });
+
+  it('JSON 后校正：尾逗号等损坏 JSON 仍可解析为工具调用', async () => {
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":"search_news","args":{"query":"存储",}}' })
+      .mockResolvedValueOnce({ content: '好的。' });
+
+    const result = await runAgentTurn({ userMessage: '存储' });
+
+    expect(result.toolLog).toHaveLength(1);
+    expect(result.toolLog[0].name).toBe('search_news');
+    expect(result.toolLog[0].ok).toBe(true);
+    expect(result.reply).toBe('好的。');
+  });
+
   it('回测无数据 → 返回提示文本，工具记为成功', async () => {
     // getBacktestByIndustry 已 mock（[]），不再依赖真实 DB 状态
     llm.chatCompletion

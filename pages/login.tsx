@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { Loader2, Lock, UserRound, AlertCircle } from "lucide-react";
+import { Loader2, Lock, UserRound, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import BrandLogo from "../components/BrandLogo";
 
 /**
- * 登录页（shadcn login-01 风格：居中卡片 + 品牌 + 账号密码）。
+ * 登录页（shadcn 风格：居中卡片 + 品牌 + 账号密码）。
+ * 背景：项目主题——「财经信号」：细网格 + 品牌色光晕 + 抽象趋势线（明暗自适应）。
  * 登录成功后跳回 next 参数指定的页面（默认首页）。
  */
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,15 +62,51 @@ export default function LoginPage() {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm space-y-8">
+      <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10">
+        {/* 背景装饰层（项目主题：信号网格 + 趋势线 + 光晕） */}
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {/* 细网格（数据表盘意象），径向遮罩聚焦中部 */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.4)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.4)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_38%,black_25%,transparent_100%)]" />
+          {/* 品牌色光晕 */}
+          <div className="absolute -top-28 left-1/2 h-80 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/4 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute -bottom-20 right-1/4 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+          {/* 抽象趋势线：主色线 + 渐变面积（上升信号意象） */}
+          <svg
+            className="absolute inset-x-0 bottom-0 h-44 w-full text-primary"
+            viewBox="0 0 1440 176"
+            fill="none"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="login-area-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.14" />
+                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M0 128 C 90 120, 150 92, 230 100 S 360 64, 450 78 S 580 36, 670 52 S 800 20, 890 34 S 1020 8, 1110 22 S 1280 2, 1360 10 L 1440 6 L 1440 176 L 0 176 Z"
+              fill="url(#login-area-fill)"
+            />
+            <path
+              d="M0 128 C 90 120, 150 92, 230 100 S 360 64, 450 78 S 580 36, 670 52 S 800 20, 890 34 S 1020 8, 1110 22 S 1280 2, 1360 10 L 1440 6"
+              stroke="currentColor"
+              strokeOpacity="0.35"
+              strokeWidth="1.5"
+            />
+            {/* 端点信号点 */}
+            <circle cx="1440" cy="6" r="3" fill="currentColor" stroke="hsl(var(--background))" strokeWidth="2" />
+          </svg>
+        </div>
+
+        <div className="relative w-full max-w-sm space-y-8">
           {/* 品牌 */}
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-2.5">
               <BrandLogo className="size-9" />
               <span className="text-xl font-semibold tracking-tight">财经信号</span>
             </div>
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-center text-sm text-muted-foreground">
               个人智能投资顾问 · 基于数据分析的信号与建议
             </p>
           </div>
@@ -76,7 +114,8 @@ export default function LoginPage() {
           {/* 登录卡片 */}
           <form
             onSubmit={submit}
-            className="space-y-4 rounded-2xl border bg-card p-6 shadow-sm"
+            noValidate
+            className="space-y-4 rounded-2xl border bg-card/90 p-6 shadow-lg backdrop-blur-sm"
           >
             <div className="space-y-2">
               <label htmlFor="username" className="text-sm font-medium leading-none">
@@ -103,21 +142,30 @@ export default function LoginPage() {
                 <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
                   autoComplete="current-password"
-                  className="pl-9"
+                  className="pr-9 pl-9"
                   disabled={submitting}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  className="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                <AlertCircle className="size-3.5 shrink-0" />
-                {error}
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
