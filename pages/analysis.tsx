@@ -370,23 +370,27 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
 
               {/* Sentiment distribution (full width below the 2-col grid) */}
               {sentimentBreakdown.length > 0 && (
-                <div id="sentiment" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
+                <div id="sentiment" className="scroll-mt-28">
                   <h3 className="text-sm font-semibold text-foreground mb-3">
                     情感分布
                   </h3>
-                  <SentimentChart data={sentimentBreakdown} />
+                  <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                    <SentimentChart data={sentimentBreakdown} />
+                  </div>
                 </div>
               )}
 
               {trend.length >= 2 && (
-                <div id="trend" className="bg-card border rounded-xl p-4 sm:p-5 mb-6 scroll-mt-28">
+                <div id="trend" className="scroll-mt-28">
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                     <h3 className="text-sm font-semibold text-foreground">
                       行业热度趋势
                     </h3>
                     <TimeRangeFilter value={trendHours} onChange={setTrendHours} />
                   </div>
-                  <IndustryTrendChart data={trend} watched={trendWatched} />
+                  <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
+                    <IndustryTrendChart data={trend} watched={trendWatched} />
+                  </div>
                 </div>
               )}
 
@@ -394,10 +398,22 @@ export default function Analysis({ stats: ssgStats, items: ssgItems, heatmap: ss
           )}
 
           <div id="threads" className="scroll-mt-28">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              事件线索
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              基于近24小时高信号新闻生成
+            </p>
             <EventThreadList threads={filteredThreads} />
           </div>
 
           <div id="backtest" className="scroll-mt-28">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              信号有效性回测
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              信号出现后行业指数后续涨跌幅 · 近 30 天 · 胜率 = T+1 上涨样本占比
+            </p>
             <BacktestPanel />
           </div>
 

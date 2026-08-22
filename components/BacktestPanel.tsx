@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { TrendingUp, TrendingDown, Loader2, ChevronDown, Building2, Hash, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, Building2, Hash, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBacktestTier, shouldShowNumbers, tierProgress, type BacktestTier } from "@/lib/backtest";
 
@@ -15,16 +15,15 @@ interface BacktestRow {
 
 type TabKey = "score" | "industry";
 
-// 表格网格列模板（内容自适应列宽，表头与两种行共用，改列宽需同步）：
-// 行业 minmax(0,1fr) | 均分 40px | 样本 96px | 3×涨跌幅 64px | 胜率 112px | 方向 56px
-const HEADER_GRID = "hidden sm:grid grid-cols-[minmax(0,1fr)_40px_96px_64px_64px_64px_112px_56px]";
-const ROW_GRID = "grid grid-cols-[1fr_40px_1fr] sm:grid-cols-[minmax(0,1fr)_40px_96px_64px_64px_64px_112px_56px]";
+// 表格网格列模板（fr 权重自适应：行业列相对收窄，数值列相对加宽，表头与两种行共用，改列宽需同步）：
+// 行业 1.4fr | 均分 0.9fr | 样本 1.4fr | 3×涨跌幅 1fr | 胜率 1.6fr | 方向 0.8fr
+const HEADER_GRID = "hidden sm:grid grid-cols-[1.4fr_0.9fr_1.4fr_1fr_1fr_1fr_1.6fr_0.8fr]";
+const ROW_GRID = "grid grid-cols-[1fr_40px_1fr] sm:grid-cols-[1.4fr_0.9fr_1.4fr_1fr_1fr_1fr_1.6fr_0.8fr]";
 
 export default function BacktestPanel() {
   const [byScore, setByScore] = useState<BacktestRow[] | null>(null);
   const [byIndustry, setByIndustry] = useState<BacktestRow[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(true); // default expanded
   const [tab, setTab] = useState<TabKey>("industry");
   // 行业视图排序：null=默认（样本降序）；score/winRate 点击表头切换升降序
   const [sortKey, setSortKey] = useState<"score" | "winRate" | null>(null);
@@ -58,7 +57,6 @@ export default function BacktestPanel() {
   }, [byIndustry, sortKey, sortDir]);
 
   useEffect(() => {
-    if (!open && byIndustry === null) return;
     if (byIndustry !== null) return;
     let cancelled = false;
     setLoading(true);
@@ -78,55 +76,27 @@ export default function BacktestPanel() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [open, byIndustry]);
+  }, [byIndustry]);
 
   const activeData = tab === "score" ? byScore : byIndustry;
   const hasData = activeData && activeData.length > 0;
 
   return (
     <div className="bg-card border rounded-xl mb-6 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 p-4 sm:p-5 text-left hover:bg-accent/30 transition-colors"
-      >
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-foreground">
-            信号有效性回测
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            信号出现后行业指数后续涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
-          </p>
+      {loading ? (
+        <div className="flex min-h-28 items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">加载中…</span>
         </div>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform shrink-0",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      <div
-        className={cn(
-          "grid transition-all duration-300 ease-in-out",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        )}
-      >
-        <div className="overflow-hidden min-h-0">
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t pt-3">
-          {loading ? (
-            <div className="flex min-h-28 items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-xs">加载中…</span>
-            </div>
-          ) : !hasData ? (
-            <div className="text-center py-8 text-xs text-muted-foreground">
-              暂无数据，信号和行情积累后自动生成
-            </div>
-          ) : (
-            <>
-              {/* Tab switcher */}
-              <div className="flex items-center gap-1 mb-3">
+      ) : !hasData ? (
+        <div className="text-center py-8 text-xs text-muted-foreground">
+          暂无数据，信号和行情积累后自动生成
+        </div>
+      ) : (
+        <>
+          {/* Tab switcher */}
+          <div className="px-4 sm:px-5 pt-4 sm:pt-5">
+          <div className="flex items-center gap-1 mb-3">
                 <button
                   type="button"
                   onClick={() => setTab("industry")}
@@ -184,7 +154,10 @@ export default function BacktestPanel() {
                 )}
                 <span>方向</span>
               </div>
+          </div>
 
+          {/* 表格 body：固定高度内垂直滚动，表头常驻（行溢出不可见时滚动查看） */}
+          <div className="px-4 sm:px-5 pb-4 sm:pb-5 max-h-[320px] overflow-y-auto overscroll-contain">
               {/* Industry view */}
               {tab === "industry" &&
                 sortedIndustry.map((row) => {
@@ -244,11 +217,9 @@ export default function BacktestPanel() {
                       </div>
                     );
                   })}
-            </>
-          )}
-        </div>
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

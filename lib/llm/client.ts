@@ -5,7 +5,7 @@
  * provider that exposes an OpenAI-compatible /v1/chat/completions endpoint.
  */
 
-import { LLM_CONFIG, getChatCompletionsUrl, PRICING } from './config';
+import { LLM_CONFIG, getChatCompletionsUrl, getEffectiveLlmConfig, PRICING } from './config';
 
 export const usageLog = [];
 
@@ -16,13 +16,21 @@ export const usageLog = [];
  * @param onDelta 流式时每个内容片段回调（用于前端打字机式展示）
  */
 export async function chatCompletion({ systemPrompt = undefined, userMessage = undefined, messages = undefined, extra = undefined, temperature = undefined, maxTokens = undefined, stream = false, onDelta = undefined }) {
-  const url = getChatCompletionsUrl();
+  // 运行时设置（设置弹窗）优先于环境变量：model/baseUrl/apiKey 每次调用读取（30s 缓存）
+  const cfg = await getEffectiveLlmConfig();
+  const url = (cfg.baseUrl || LLM_CONFIG.baseUrl).replace(/\/+$/, '');
+  const completionsUrl =
+    url.endsWith('/chat/completions')
+      ? url
+      : url.endsWith('/v1')
+        ? `${url}/chat/completions`
+        : `${url}/v1/chat/completions`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_CONFIG.timeoutMs);
 
   try {
     const body = {
-      model: LLM_CONFIG.model,
+      model: cfg.model,
       // messages 优先（多轮/工具调用场景），否则降级为 system+user 单轮
       messages: messages ?? [
         { role: 'system', content: systemPrompt },
@@ -34,11 +42,11 @@ export async function chatCompletion({ systemPrompt = undefined, userMessage = u
       ...extra,
     };
 
-    const res = await fetch(url, {
+    const res = await fetch(completionsUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
+        'Authorization': `Bearer ${cfg.apiKey}`,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -53,12 +61,12 @@ export async function chatCompletion({ systemPrompt = undefined, userMessage = u
       const json = await res.json();
       const entry = {
         timestamp: new Date().toISOString(),
-        model: LLM_CONFIG.model,
+        model: cfg.model,
         usage: json.usage,
       };
       usageLog.push(entry);
       const content = json.choices?.[0]?.message?.content || '';
-      return { content, usage: json.usage, model: LLM_CONFIG.model };
+      return { content, usage: json.usage, model: cfg.model };
     }
 
     // ── SSE 流式解析 ──
@@ -98,10 +106,10 @@ export async function chatCompletion({ systemPrompt = undefined, userMessage = u
 
     usageLog.push({
       timestamp: new Date().toISOString(),
-      model: LLM_CONFIG.model,
+      model: cfg.model,
       usage,
     });
-    return { content, usage, model: LLM_CONFIG.model };
+    return { content, usage, model: cfg.model };
   } finally {
     clearTimeout(timeout);
   }

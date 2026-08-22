@@ -129,9 +129,9 @@ describe('P2.5 价值验证判定', () => {
     expect(report.rates.industry_drill).toBe(0);
   });
 
-  it('判定文案存在且可读', () => {
-    expect(VERDICT_LABELS.go).toContain('Go');
-    expect(VERDICT_LABELS['no-go']).toContain('No-Go');
+  it('判定文案存在且可读（产品化文案，无内部代号）', () => {
+    expect(VERDICT_LABELS.go).toBe('通过');
+    expect(VERDICT_LABELS['no-go']).toBe('未通过');
     expect(VERDICT_LABELS['insufficient-data']).toContain('延长观察期');
   });
 });

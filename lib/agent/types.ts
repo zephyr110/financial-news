@@ -38,6 +38,8 @@ export interface AgentTurnResult {
   toolLog: { name: string; args: Record<string, unknown>; ok: boolean; summary: string }[];
   /** 是否因步数上限被截断 */
   truncated: boolean;
+  /** 本轮用户消息的数据库 id（编辑重发时为被编辑消息的 id） */
+  userMessageId: number;
 }
 
 /** 工具协议常量：模型输出的工具调用 JSON 格式 */

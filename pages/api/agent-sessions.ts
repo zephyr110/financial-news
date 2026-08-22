@@ -1,4 +1,4 @@
-import { listAgentSessions, getAgentMessages, deleteAgentSession } from '../../lib/db';
+import { listAgentSessions, getAgentMessages, deleteAgentSession, agentSessionExists } from '../../lib/db';
 
 /**
  * 研究 Agent — 会话历史 API
@@ -38,6 +38,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'sessionId 非法' });
     }
     try {
+      // 会话不存在返回 404：前端据此清理 localStorage 里残留的失效 sessionId
+      const exists = await agentSessionExists(sid);
+      if (!exists) return res.status(404).json({ error: '会话不存在', sessionId: sid });
       const messages = await getAgentMessages(sid);
       return res.status(200).json({ sessionId: sid, messages });
     } catch (error) {

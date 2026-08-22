@@ -1,4 +1,5 @@
-import { createContext, useContext, useRef } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
+import { useRouter } from "next/router";
 import { SidebarInset, SidebarProvider } from "./ui/sidebar";
 import AppSidebar from "./app-sidebar";
 import AppTopbar from "./app-topbar";
@@ -24,6 +25,20 @@ export default function AppShell({
   children,
 }) {
   const scrollRef = useRef(null);
+  const router = useRouter();
+
+  // 会话过期兜底：middleware 只在导航时校验，页面停留期间会话失效时由这里跳回登录页
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => {
+        if (r.status === 401) {
+          router.replace(`/login?next=${encodeURIComponent(router.asPath)}`);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <SidebarProvider className="flex h-dvh min-h-0 w-full overflow-hidden">
       <AppSidebar sidebarExtra={sidebarExtra} />

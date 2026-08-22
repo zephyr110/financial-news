@@ -56,6 +56,8 @@ export default function SessionSidebarGroup({
     setConfirmingId(id);
     confirmTimer.current = setTimeout(() => setConfirmingId(null), 3000);
   };
+  // 卸载时清理确认态计时器，避免对已卸载组件 setState
+  useEffect(() => () => clearTimeout(confirmTimer.current), []);
 
   const openSearch = () => setSearchOpen(true);
 
@@ -194,7 +196,7 @@ export default function SessionSidebarGroup({
                       className={cn(
                         confirming
                           ? "bg-destructive/10 text-destructive opacity-100"
-                          : "opacity-0 group-hover/menu-item:opacity-100 focus-visible:opacity-100"
+                          : "opacity-0 group-hover/menu-item:opacity-100 focus-visible:opacity-100 hover-none:opacity-100"
                       )}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

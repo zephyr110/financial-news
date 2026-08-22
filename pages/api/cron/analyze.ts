@@ -7,7 +7,7 @@ import { defaultBatchId, withPipelineRun } from '../../../lib/pipeline';
  * GET /api/cron/analyze?batch=<optional>
  */
 export default async function handler(req, res) {
-  if (!assertCronAuth(req, res)) return;
+  if (!await assertCronAuth(req, res)) return;
 
   try {
     const batchId = typeof req.query.batch === 'string' ? req.query.batch : defaultBatchId();

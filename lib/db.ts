@@ -178,6 +178,34 @@ async function initSchema(db) {
       created_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_msg_session ON agent_message(session_id, id);
+
+    -- 会话分享（公开只读链接）：token 即访问凭据，无需鉴权
+    CREATE TABLE IF NOT EXISTS agent_share (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      token      TEXT    NOT NULL UNIQUE,
+      session_id INTEGER NOT NULL REFERENCES agent_session(id),
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_share_session ON agent_share(session_id);
+
+    -- 登录账号（单账号）与会话、运行设置（运行时覆盖环境变量）
+    CREATE TABLE IF NOT EXISTS app_account (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      username      TEXT    NOT NULL UNIQUE,
+      password_hash TEXT    NOT NULL,
+      salt          TEXT    NOT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS app_session (
+      token      TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // 迁移：event_threads 补充 dedup_key 幂等键（P1.2）。
@@ -758,6 +786,13 @@ export async function getEventThreadById(id: number) {
 
 // ── Agent Session CRUD（研究 Agent 持久化） ──
 
+/** 会话是否存在（前端缓存了已删除会话时，发消息前校验防外键错误）。 */
+export async function agentSessionExists(sessionId: number): Promise<boolean> {
+  const db = await getDb();
+  const r = await db.execute({ sql: 'SELECT id FROM agent_session WHERE id = ?', args: [sessionId] });
+  return r.rows.length > 0;
+}
+
 /** 创建研究会话，返回 session id。 */
 export async function createAgentSession(title = '新会话') {
   const db = await getDb();
@@ -778,11 +813,15 @@ export async function listAgentSessions(limit = 20) {
   return result.rows;
 }
 
-/** 删除会话及其全部消息（历史对话删除）。 */
+/** 删除会话及其全部消息（历史对话删除）；分享链接一并失效。 */
 export async function deleteAgentSession(sessionId: number) {
   const db = await getDb();
   await db.execute({
     sql: 'DELETE FROM agent_message WHERE session_id = ?',
+    args: [sessionId],
+  });
+  await db.execute({
+    sql: 'DELETE FROM agent_share WHERE session_id = ?',
     args: [sessionId],
   });
   await db.execute({
@@ -800,13 +839,36 @@ export async function touchAgentSession(sessionId: number, title?: string) {
   });
 }
 
-/** 追加一条会话消息。meta 为 {toolCall?, toolResult?} 可 JSON 数据。 */
-export async function appendAgentMessage(sessionId: number, role: string, content: string, meta?: unknown) {
+/** 追加一条会话消息；返回新消息 id。meta 为 {toolCall?, toolResult?} 可 JSON 数据。 */
+export async function appendAgentMessage(sessionId: number, role: string, content: string, meta?: unknown): Promise<number> {
   const db = await getDb();
-  await db.execute({
+  const r = await db.execute({
     sql: 'INSERT INTO agent_message (session_id, role, content, meta) VALUES (?, ?, ?, ?)',
     args: [sessionId, role, content, meta != null ? JSON.stringify(meta) : null],
   });
+  return Number(r.lastInsertRowid);
+}
+
+/**
+ * 编辑会话消息（编辑重发语义）：替换内容并删除其后全部消息。
+ * 消息不存在或不属于该会话时返回 false。
+ */
+export async function editAgentMessage(sessionId: number, messageId: number, newContent: string): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.execute({
+    sql: 'SELECT id FROM agent_message WHERE id = ? AND session_id = ?',
+    args: [messageId, sessionId],
+  });
+  if (row.rows.length === 0) return false;
+  await db.execute({
+    sql: 'UPDATE agent_message SET content = ? WHERE id = ?',
+    args: [newContent, messageId],
+  });
+  await db.execute({
+    sql: 'DELETE FROM agent_message WHERE session_id = ? AND id > ?',
+    args: [sessionId, messageId],
+  });
+  return true;
 }
 
 /** 读取会话全部消息（正序）。 */
@@ -823,6 +885,39 @@ export async function getAgentMessages(sessionId: number) {
     meta: parseJsonOrNull(r.meta as string),
     created_at: r.created_at,
   }));
+}
+
+/**
+ * 创建会话分享（幂等：同一会话复用已有 token）。
+ * token 为公开链接凭据（128 位随机串），任何持有者可只读访问该会话。
+ */
+export async function createAgentShare(sessionId: number): Promise<string> {
+  const db = await getDb();
+  const existing = await db.execute({
+    sql: 'SELECT token FROM agent_share WHERE session_id = ? ORDER BY id DESC LIMIT 1',
+    args: [sessionId],
+  });
+  if (existing.rows[0]?.token) return String(existing.rows[0].token);
+  const token =
+    (globalThis.crypto?.randomUUID?.() || `${Date.now()}${Math.random().toString(36).slice(2)}`).replace(/-/g, '');
+  await db.execute({
+    sql: 'INSERT INTO agent_share (token, session_id) VALUES (?, ?)',
+    args: [token, sessionId],
+  });
+  return token;
+}
+
+/** 读取分享会话（只读：标题 + 全部消息）；链接无效或会话不存在返回 null。 */
+export async function getSharedSession(token: string) {
+  const db = await getDb();
+  const share = await db.execute({
+    sql: 'SELECT s.id, s.title FROM agent_share a JOIN agent_session s ON s.id = a.session_id WHERE a.token = ?',
+    args: [token],
+  });
+  const row = share.rows[0] as Record<string, unknown> | undefined;
+  if (!row) return null;
+  const messages = await getAgentMessages(rowId(row.id));
+  return { title: row.title || '未命名会话', messages };
 }
 
 /**
@@ -1347,7 +1442,7 @@ export async function getEventMetrics(days = 7) {
     // 周回访：最近 7 天去重 session ∩ 前 7 天窗口去重 session
     db.execute({
       sql: `SELECT COUNT(*) as recent_sessions,
-                   SUM(CASE WHEN older.session IS NOT NULL THEN 1 ELSE 0 END) as returning
+                   SUM(CASE WHEN older.session IS NOT NULL THEN 1 ELSE 0 END) as returning_sessions
             FROM (
               SELECT DISTINCT json_extract(payload, '$.session') as session
               FROM event_log
@@ -1377,7 +1472,7 @@ export async function getEventMetrics(days = 7) {
     })),
     weeklyReturn: {
       recentSessions: Number(weeklyRow?.recent_sessions || 0),
-      returning: Number(weeklyRow?.returning || 0),
+      returning: Number(weeklyRow?.returning_sessions || 0),
     },
   };
 }

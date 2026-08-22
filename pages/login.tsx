@@ -1,0 +1,143 @@
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import { Loader2, Lock, UserRound, AlertCircle } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import BrandLogo from "../components/BrandLogo";
+
+/**
+ * 登录页（shadcn login-01 风格：居中卡片 + 品牌 + 账号密码）。
+ * 登录成功后跳回 next 参数指定的页面（默认首页）。
+ */
+export default function LoginPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // 已登录则直接进入
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated) router.replace("/");
+      })
+      .catch(() => {});
+  }, [router]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "登录失败，请重试");
+        return;
+      }
+      const next = typeof router.query.next === "string" ? router.query.next : "/";
+      router.replace(next);
+    } catch {
+      setError("网络错误，请稍后重试");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Head>
+        <title>登录 — 财经信号</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex" />
+      </Head>
+
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm space-y-8">
+          {/* 品牌 */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <BrandLogo className="size-9" />
+              <span className="text-xl font-semibold tracking-tight">财经信号</span>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              个人智能投资顾问 · 基于数据分析的信号与建议
+            </p>
+          </div>
+
+          {/* 登录卡片 */}
+          <form
+            onSubmit={submit}
+            className="space-y-4 rounded-2xl border bg-card p-6 shadow-sm"
+          >
+            <div className="space-y-2">
+              <label htmlFor="username" className="text-sm font-medium leading-none">
+                账号
+              </label>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="请输入账号"
+                  autoComplete="username"
+                  className="pl-9"
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium leading-none">
+                密码
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="请输入密码"
+                  autoComplete="current-password"
+                  className="pl-9"
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="size-3.5 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={submitting || !username.trim() || !password}>
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  登录中…
+                </>
+              ) : (
+                "登录"
+              )}
+            </Button>
+          </form>
+
+          <p className="text-center text-xs text-muted-foreground">
+            仅供个人研究使用 · 不构成投资建议
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}

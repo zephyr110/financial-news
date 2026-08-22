@@ -1,5 +1,5 @@
 import { getUnanalyzedNews, getNeedsDeepAnalysis, getHighSignalNews, insertAnalysis, updateDeepAnalysis, saveEventThreads, logEvent, EVENT_TYPES, getPipelineCursor, setPipelineCursor, resetStuckCursor } from './db';
-import { LLM_CONFIG, describeProvider } from './llm/config';
+import { describeProvider, getEffectiveLlmConfig } from './llm/config';
 import { chatCompletion, getUsageStats, getCostEstimate } from './llm/client';
 import { SCORE_TO_IMPACT } from './constants';
 
@@ -104,8 +104,9 @@ function scoreToImpact(score) {
 // 默认批量调小：单轮在 Vercel Hobby 函数时限（60s）内稳定完成，
 // 消化不完的积压由 30 分钟调度频率持续消化，而非单轮长跑超时。
 export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
-  if (!LLM_CONFIG.apiKey) {
-    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
+  const cfg = await getEffectiveLlmConfig();
+  if (!cfg.apiKey) {
+    throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable, or configure it in 设置 → 模型.');
   }
 
   // 环境变量可调批大小（serverless 60s 时限内安全：默认 5×2=10 条/次）
@@ -251,7 +252,8 @@ function parseDeepAnalysisResponse(content, newsItems) {
 }
 
 export async function deepAnalyzeSignals(batchSize = 5, maxBatches = 2) {
-  if (!LLM_CONFIG.apiKey) throw new Error('LLM_API_KEY not configured.');
+  const cfg = await getEffectiveLlmConfig();
+  if (!cfg.apiKey) throw new Error('LLM_API_KEY not configured. Configure it in 设置 → 模型 or set the environment variable.');
 
   batchSize = parseInt(process.env.PIPELINE_BATCH_SIZE || '', 10) || batchSize;
   maxBatches = parseInt(process.env.PIPELINE_MAX_BATCHES || '', 10) || maxBatches;
@@ -345,7 +347,8 @@ const EVENT_THREAD_PROMPT = `你是一个财经事件分析师。给定过去一
 - 最多返回5个事件线索`;
 
 export async function detectEventThreads(hoursBack = 24) {
-  if (!LLM_CONFIG.apiKey) throw new Error('LLM_API_KEY not configured.');
+  const cfg = await getEffectiveLlmConfig();
+  if (!cfg.apiKey) throw new Error('LLM_API_KEY not configured. Configure it in 设置 → 模型 or set the environment variable.');
 
   const news = await getHighSignalNews(hoursBack, 80);
   if (news.length < 5) {
