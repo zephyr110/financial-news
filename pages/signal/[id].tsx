@@ -53,8 +53,8 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
       <>
         <Head><title>加载中… — 财经信号</title></Head>
         <AppShell title="信号详情">
-          <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
-            <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+          <div className="mx-auto flex min-h-full max-w-[720px] lg:max-w-[960px] flex-col px-4 sm:px-6 pb-12 pt-8">
+            <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">加载中…</span>
             </div>

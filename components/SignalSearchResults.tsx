@@ -41,7 +41,7 @@ export default function SignalSearchResults({
   // Loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+      <div className="flex min-h-40 items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-xs">搜索中…</span>
       </div>

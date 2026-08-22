@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import { MessageSquareText, Send, Wrench, Loader2, Bot } from "lucide-react";
+import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
 import AppShell from "../components/app-shell";
 import SessionSidebarGroup from "../components/SessionSidebarGroup";
 import { Button } from "../components/ui/button";
@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 interface ToolCallInfo {
   name: string;
   args: Record<string, unknown>;
+  /** 流式工具执行状态：tool_end 事件到达后由 running 变为 done/error */
+  status?: "running" | "done" | "error";
+  summary?: string;
 }
 
 interface ChatItem {
@@ -113,6 +116,8 @@ export default function AgentPage() {
     async (id: number) => {
       setLoadingHistory(true);
       setError(null);
+      // 切换会话时清空旧消息，避免与加载指示叠加显示
+      setMessages([]);
       try {
         const res = await fetch(`/api/agent-sessions?id=${id}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -204,9 +209,33 @@ export default function AgentPage() {
                 id: `tool-${Date.now()}-${payload.tool}`,
                 role: "assistant" as const,
                 content: "",
-                toolCall: { name: payload.tool, args: payload.args || {} } as ToolCallInfo,
+                toolCall: {
+                  name: payload.tool,
+                  args: payload.args || {},
+                  status: "running",
+                } as ToolCallInfo,
               },
             ]);
+          } else if (event === "tool_end") {
+            // 更新最后一条执行中的工具卡片（SSE 顺序 = 工具执行顺序，单 agent 串行执行）
+            setMessages((prev) => {
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const m = prev[i];
+                if (m.toolCall && m.toolCall.status !== "done" && m.toolCall.status !== "error") {
+                  const next = [...prev];
+                  next[i] = {
+                    ...m,
+                    toolCall: {
+                      ...m.toolCall,
+                      status: payload.ok ? "done" : "error",
+                      summary: payload.summary,
+                    },
+                  };
+                  return next;
+                }
+              }
+              return prev;
+            });
           } else if (event === "delta") {
             streamText += payload.text || "";
             if (!streamMsgId) {
@@ -367,7 +396,7 @@ export default function AgentPage() {
 
               <div className="space-y-5">
               {loadingHistory && (
-                <div className="flex items-center justify-center py-16 text-muted-foreground">
+                <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="ml-2 text-xs">正在加载会话…</span>
                 </div>
@@ -415,30 +444,39 @@ export default function AgentPage() {
                     <div key={m.id} className="flex justify-start pl-10">
                       <div className="max-w-[85%]">
                         <details className="group/tool rounded-xl border bg-muted/40 open:bg-muted/60">
-                          <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none">
+                          <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none list-none [&::-webkit-details-marker]:hidden">
                             <Wrench className="h-3.5 w-3.5 shrink-0" />
                             <span className="font-medium text-foreground">调用工具 {m.toolCall.name}</span>
-                            <span className="text-muted-foreground">执行中…</span>
+                            {m.toolCall.status === "done" ? (
+                              <span className="ml-auto inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                完成
+                              </span>
+                            ) : m.toolCall.status === "error" ? (
+                              <span className="ml-auto inline-flex items-center gap-1 text-destructive">
+                                <XCircle className="h-3.5 w-3.5" />
+                                失败
+                              </span>
+                            ) : (
+                              <span className="ml-auto inline-flex items-center gap-1 text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                执行中…
+                              </span>
+                            )}
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-open/tool:rotate-90" />
                           </summary>
-                          <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
-                            {JSON.stringify(m.toolCall.args, null, 2)}
-                          </pre>
+                          <div className="grid grid-rows-[0fr] transition-all duration-200 group-open/tool:grid-rows-[1fr]">
+                            <div className="overflow-hidden">
+                              <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
+                                {JSON.stringify(m.toolCall.args, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
                         </details>
                         {m.toolLog && m.toolLog.length > 0 && (
                           <div className="mt-1.5 rounded-xl border bg-muted/20 px-3 py-2 space-y-1.5">
                             {m.toolLog.map((t, i) => (
-                              <div key={i} className="flex items-center gap-1.5 text-xs">
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                                    t.ok ? "bg-emerald-500" : "bg-destructive"
-                                  )}
-                                  aria-hidden
-                                />
-                                <Wrench className="h-3 w-3 shrink-0 opacity-70" />
-                                <span className="truncate font-medium">{t.name}</span>
-                                <span className="truncate text-muted-foreground">{t.summary}</span>
-                              </div>
+                              <ToolLogRow key={i} t={t} />
                             ))}
                           </div>
                         )}
@@ -458,8 +496,8 @@ export default function AgentPage() {
                       className={cn(
                         "max-w-[85%] whitespace-pre-wrap text-sm leading-relaxed",
                         isUser
-                          ? // 用户气泡：右上角直角，其余三角保持圆角
-                            "rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-accent/60 px-4 py-2.5 text-foreground"
+                          ? // 用户气泡：primary 蓝（明暗主题自适应）+ 右上角直角，其余三角保持圆角
+                            "rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
                           : "text-foreground"
                       )}
                     >
@@ -467,18 +505,7 @@ export default function AgentPage() {
                       {m.toolLog && m.toolLog.length > 0 && (
                         <div className="mt-2.5 pt-2.5 border-t border-foreground/10 space-y-1.5">
                           {m.toolLog.map((t, i) => (
-                            <div key={i} className="flex items-center gap-1.5 text-xs">
-                              <span
-                                className={cn(
-                                  "h-1.5 w-1.5 shrink-0 rounded-full",
-                                  t.ok ? "bg-emerald-500" : "bg-red-500"
-                                )}
-                                aria-hidden
-                              />
-                              <Wrench className="h-3 w-3 shrink-0 opacity-70" />
-                              <span className="truncate font-medium">{t.name}</span>
-                              <span className="truncate text-muted-foreground">{t.summary}</span>
-                            </div>
+                            <ToolLogRow key={i} t={t} />
                           ))}
                         </div>
                       )}
@@ -488,11 +515,11 @@ export default function AgentPage() {
               })}
 
               {loading && (
-                <div className="flex justify-start gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Bot className="h-4 w-4" />
                   </span>
-                  <div className="inline-flex items-center gap-2 pt-1.5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在研究…
                   </div>
@@ -534,5 +561,33 @@ export default function AgentPage() {
             </div>
       </AppShell>
     </>
+  );
+}
+
+/** 工具日志行：单行截断展示，展开后显示完整内容（grid-rows 过渡动画）。 */
+function ToolLogRow({ t }: { t: { name: string; ok: boolean; summary: string } }) {
+  return (
+    <details className="group/log">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-xs [&::-webkit-details-marker]:hidden">
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            t.ok ? "bg-emerald-500" : "bg-destructive"
+          )}
+          aria-hidden
+        />
+        <Wrench className="h-3 w-3 shrink-0 opacity-70" />
+        <span className="min-w-0 truncate font-medium">{t.name}</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{t.summary}</span>
+        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground transition-transform group-open/log:rotate-90" />
+      </summary>
+      <div className="grid grid-rows-[0fr] transition-all duration-200 group-open/log:grid-rows-[1fr]">
+        <div className="overflow-hidden">
+          <div className="pt-1.5 pl-4 text-xs text-muted-foreground whitespace-pre-wrap break-all">
+            {t.summary}
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
