@@ -15,6 +15,13 @@ import {
   resetStuckCursor,
   getUnanalyzedNews,
   getEventAnalytics,
+  getEventMetrics,
+  createAgentSession,
+  appendAgentMessage,
+  editAgentMessage,
+  createAgentShare,
+  getSharedSession,
+  deleteAgentSession,
 } from '../lib/db';
 import { runBacktest } from '../lib/market';
 import { startPipelineRun, finishPipelineRun, withPipelineRun, getPipelineHealth } from '../lib/pipeline';
@@ -231,6 +238,84 @@ describe('P2.1 埋点按日聚合', () => {
     expect(thr.count).toBe(1);
     expect(search.count).toBe(1);
     expect(search.sessions).toBe(1);
+  });
+
+  it('getEventMetrics：跨窗口周回访聚合（SQL 别名 returning 回归）', async () => {
+    const db = await getDb();
+    // 隔离：清掉上一个用例（getEventAnalytics）插入的会话，避免污染 7 天窗口计数
+    await db.execute({ sql: 'DELETE FROM event_log' });
+    const day = 24 * 60 * 60 * 1000;
+    const payload = (session: string) => JSON.stringify({ ts: new Date().toISOString(), session });
+    // 最近 7 天窗口：sess-x（3 天前）、sess-z（1 天前）
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload, created_at) VALUES (?, ?, ?, ?)',
+      args: ['signal_click', 1, payload('sess-x'), new Date(Date.now() - 3 * day).toISOString()],
+    });
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload, created_at) VALUES (?, ?, ?, ?)',
+      args: ['signal_click', 2, payload('sess-z'), new Date(Date.now() - 1 * day).toISOString()],
+    });
+    // 前 7 天窗口：sess-x 再次出现（应计入周回访），sess-y 仅老窗口
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload, created_at) VALUES (?, ?, ?, ?)',
+      args: ['thread_expand', 3, payload('sess-x'), new Date(Date.now() - 10 * day).toISOString()],
+    });
+    await db.execute({
+      sql: 'INSERT INTO event_log (event_type, entity_id, payload, created_at) VALUES (?, ?, ?, ?)',
+      args: ['thread_expand', 4, payload('sess-y'), new Date(Date.now() - 12 * day).toISOString()],
+    });
+
+    const m = await getEventMetrics(7);
+    expect(m.uniqueSessions).toBe(2);
+    expect(m.weeklyReturn.recentSessions).toBe(2);
+    expect(m.weeklyReturn.returning).toBe(1);
+  });
+});
+
+describe('agent 会话分享（公开只读链接）', () => {
+  it('createAgentShare 幂等：同一会话复用 token，token 唯一且非空', async () => {
+    const sid = await createAgentSession('分享测试');
+    await appendAgentMessage(sid, 'user', '你好');
+    await appendAgentMessage(sid, 'assistant', '**回复**');
+
+    const t1 = await createAgentShare(sid);
+    const t2 = await createAgentShare(sid);
+    expect(t1).toBeTruthy();
+    expect(t1).toBe(t2);
+    expect(t1).toMatch(/^[0-9a-f]{32}$/); // randomUUID 去连字符
+
+    const shared = await getSharedSession(t1);
+    expect(shared).not.toBeNull();
+    expect(shared!.title).toBe('分享测试');
+    expect(shared!.messages.length).toBe(2);
+    expect(shared!.messages[0].content).toBe('你好');
+  });
+
+  it('编辑重发：替换内容并截断其后消息；跨会话/不存在返回 false', async () => {
+    const db = await getDb();
+    const sid = await createAgentSession('编辑测试');
+    const m1 = await appendAgentMessage(sid, 'user', '旧问题');
+    const m2 = await appendAgentMessage(sid, 'assistant', '旧回答');
+    await appendAgentMessage(sid, 'assistant', '后续内容');
+
+    const ok = await editAgentMessage(sid, m1, '新问题');
+    expect(ok).toBe(true);
+    const rows = await db.execute({ sql: 'SELECT id, content FROM agent_message WHERE session_id = ? ORDER BY id ASC', args: [sid] });
+    expect(rows.rows.length).toBe(1); // 编辑消息后的全部消息被截断
+    expect(rows.rows[0].content).toBe('新问题');
+
+    expect(await editAgentMessage(sid, 99999, '不存在')).toBe(false);
+    const sid2 = await createAgentSession('另一会话');
+    expect(await editAgentMessage(sid2, m1, '越权编辑')).toBe(false);
+  });
+
+  it('无效 token → null；删除会话后分享链接失效', async () => {
+    expect(await getSharedSession('nonexistent-token')).toBeNull();
+
+    const sid = await createAgentSession('待删除分享');
+    const token = await createAgentShare(sid);
+    await deleteAgentSession(sid);
+    expect(await getSharedSession(token)).toBeNull();
   });
 });
 

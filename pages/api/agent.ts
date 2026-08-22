@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: `Method ${req.method} not allowed` });
   }
 
-  const { sessionId, message, stream } = req.body || {};
+  const { sessionId, message, stream, editingId } = req.body || {};
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({ error: 'message 必填' });
   }
@@ -29,6 +29,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'sessionId 非法' });
   }
 
+  // 编辑重发：必须携带已有 sessionId，且 editingId 为合法消息 id
+  const eid = editingId != null ? Number(editingId) : undefined;
+  if (editingId != null && (!Number.isInteger(eid) || (eid as number) <= 0)) {
+    return res.status(400).json({ error: 'editingId 非法' });
+  }
+  if (eid != null && sid == null) {
+    return res.status(400).json({ error: '编辑重发需要 sessionId' });
+  }
+
   const wantsStream = stream === true;
 
   if (!wantsStream) {
@@ -36,6 +45,7 @@ export default async function handler(req, res) {
       const result = await runAgentTurn({
         sessionId: sid,
         userMessage: message.trim(),
+        editingId: eid,
       });
       return res.status(200).json(result);
     } catch (error) {
@@ -66,6 +76,7 @@ export default async function handler(req, res) {
     const result = await runAgentTurn({
       sessionId: sid,
       userMessage: message.trim(),
+      editingId: eid,
       onEvent: (e) => {
         if (e.type === 'tool_start') send('tool_start', { tool: e.tool, args: e.args });
         else if (e.type === 'tool_end') send('tool_end', { tool: e.tool, ok: e.ok, summary: e.summary });
@@ -77,6 +88,7 @@ export default async function handler(req, res) {
             steps: e.steps,
             toolLog: e.toolLog,
             truncated: e.truncated,
+            userMessageId: e.userMessageId,
           });
         }
       },

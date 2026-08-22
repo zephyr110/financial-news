@@ -26,10 +26,6 @@ const confidenceIcons = {
 export default function EventThreadList({ threads }) {
   return (
     <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-      <h3 className="text-sm font-semibold text-foreground mb-3">
-        事件线索
-      </h3>
-      <p className="text-xs text-muted-foreground mb-3">基于近24小时高信号新闻生成</p>
       {!threads || threads.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-8">
           暂无事件线索，数据分析完成后自动生成

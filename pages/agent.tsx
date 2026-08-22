@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight, Copy, Check, Share2 } from "lucide-react";
+import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight, Copy, Check, Share2, Pencil, X } from "lucide-react";
 import AppShell from "../components/app-shell";
 import SessionSidebarGroup from "../components/SessionSidebarGroup";
 import { Button } from "../components/ui/button";
@@ -85,6 +85,9 @@ export default function AgentPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // 正在编辑的用户消息（仅 hist-* 有数据库 id，可编辑重发）
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,18 +102,31 @@ export default function AgentPage() {
     }
   }, []);
 
-  // 分享回复：Web Share API 优先，不支持时降级为复制
-  const shareMessage = useCallback(async (text: string) => {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ text });
-        return;
-      } catch {
-        // 用户取消分享等，无需提示
+  // 分享会话：生成公开只读链接（Web Share API 优先，不支持时降级为复制链接）
+  const shareConversation = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch("/api/agent-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const url = `${window.location.origin}${data.path}`;
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: "财经信号会话分享", url });
+          return;
+        } catch {
+          // 用户取消分享等，降级为复制链接
+        }
       }
+      await copyMessage("share", url);
+    } catch {
+      // 分享失败静默（无独立错误提示空间）
     }
-    await copyMessage("share", text);
-  }, [copyMessage]);
+  }, [sessionId, copyMessage]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -180,22 +196,30 @@ export default function AgentPage() {
   }, [refreshSessions, loadSession]);
 
   const submitMessage = useCallback(
-    async (textOverride?: string) => {
+    async (textOverride?: string, opts?: { editingId?: string }) => {
       const text = (textOverride ?? input).trim();
       if (!text || loading) return;
       setInput("");
       setError(null);
       setLoading(true);
 
-      // 乐观渲染用户消息（id 在闭包内固定，失败时按同一 id 移除）
+      // 编辑重发：不追加新用户消息（本地已截断并更新内容），服务端同样处理
+      const editing = opts?.editingId ?? null;
       const optimisticId = `local-${Date.now()}`;
-      setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: text }]);
+      if (!editing) {
+        setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: text }]);
+      }
 
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sessionId ?? undefined, message: text, stream: true }),
+          body: JSON.stringify({
+            sessionId: sessionId ?? undefined,
+            message: text,
+            stream: true,
+            editingId: editing ? Number(editing.replace("hist-", "")) : undefined,
+          }),
         });
 
         // 非流式失败响应（400/503/500）→ 与旧逻辑一致处理
@@ -211,8 +235,8 @@ export default function AgentPage() {
           } else {
             setError(data.error || `请求失败（HTTP ${res.status}）`);
           }
-          // 移除乐观渲染的 user 消息，让用户重试
-          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+          // 移除乐观渲染的 user 消息，让用户重试（编辑重发时无乐观消息，跳过）
+          if (!editing) setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           return;
         }
 
@@ -279,6 +303,16 @@ export default function AgentPage() {
             doneSessionId = payload.sessionId;
             toolLogs = payload.toolLog || [];
             const reply = streamText || payload.reply || "";
+            // 乐观用户消息替换为数据库消息（拿到真实 id，后续编辑重发可用）
+            if (!editing && payload.userMessageId) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === optimisticId
+                    ? { ...m, id: `hist-${payload.userMessageId}` }
+                    : m
+                )
+              );
+            }
             // 工具日志附加到最终回复气泡（若无 delta 累积则新建消息）
             setMessages((prev) =>
               streamMsgId
@@ -326,13 +360,31 @@ export default function AgentPage() {
       } catch (e) {
         console.error("Agent request failed:", e);
         setError("网络错误，请稍后重试");
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        if (!editing) setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       } finally {
         setLoading(false);
         inputRef.current?.focus();
       }
     },
     [input, loading, sessionId, persistSession, refreshSessions]
+  );
+
+  // 编辑用户消息重发：本地截断该条之后的全部消息 → 更新内容 → 走编辑重发接口
+  const sendEdit = useCallback(
+    async (m: ChatItem, draft: string) => {
+      const text = draft.trim();
+      if (!text || loading) return;
+      setEditingId(null);
+      setEditingDraft("");
+      setMessages((prev) => {
+        const idx = prev.findIndex((x) => x.id === m.id);
+        if (idx < 0) return prev;
+        // 保留该条及其之前的消息，更新内容，清除之后所有回复
+        return [...prev.slice(0, idx), { ...prev[idx], content: text }];
+      });
+      await submitMessage(text, { editingId: m.id });
+    },
+    [loading, submitMessage]
   );
 
   const send = useCallback(() => {
@@ -476,7 +528,7 @@ export default function AgentPage() {
                         <details className="group/tool rounded-xl border bg-muted/40 open:bg-muted/60">
                           <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs text-muted-foreground select-none list-none [&::-webkit-details-marker]:hidden">
                             <Wrench className="h-3.5 w-3.5 shrink-0" />
-                            <span className="font-medium text-foreground">调用工具 {m.toolCall.name}</span>
+                            <span className="font-medium text-foreground">调用工具： {m.toolCall.name}</span>
                             {m.toolCall.status === "done" ? (
                               <span className="ml-auto inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -515,6 +567,9 @@ export default function AgentPage() {
                   );
                 }
                 const isUser = m.role === "user";
+                // 仅带数据库 id 的历史消息可编辑（乐观/流式消息等服务端落库后替换为 hist-*）
+                const editable = isUser && m.id.startsWith("hist-");
+                const isEditing = editingId === m.id;
                 return (
                   <div
                     key={m.id}
@@ -530,16 +585,106 @@ export default function AgentPage() {
                     )}
                     <div
                       className={cn(
-                        "max-w-[85%] text-sm",
+                        "max-w-[85%] text-sm group",
                         isUser
                           ? // 用户气泡：primary 蓝（明暗主题自适应）+ 右上角直角，其余三角保持圆角
                             "leading-relaxed rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
                           : "leading-7 text-foreground"
                       )}
                     >
-                      {isUser ? (
-                        <div className="whitespace-pre-wrap">{m.content}</div>
+                      {isUser && isEditing ? (
+                        <div className="flex flex-col">
+                          <Textarea
+                            value={editingDraft}
+                            onChange={(e) => setEditingDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                void sendEdit(m, editingDraft);
+                              } else if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingDraft("");
+                              }
+                            }}
+                            rows={Math.max(2, m.content.split("\n").length)}
+                            maxLength={2000}
+                            autoFocus
+                            className="min-h-0 resize-y border-0 bg-transparent px-0 py-0 text-primary-foreground shadow-none focus-visible:ring-0 placeholder:text-primary-foreground/60"
+                          />
+                          <div className="mt-2 flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditingDraft("");
+                              }}
+                              className="inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] text-primary-foreground/80 transition-colors hover:bg-primary-foreground/10"
+                            >
+                              <X className="size-3.5" />
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void sendEdit(m, editingDraft)}
+                              disabled={loading || !editingDraft.trim()}
+                              className="inline-flex h-6 items-center gap-1 rounded-md bg-primary-foreground px-2 text-[11px] font-medium text-primary transition-opacity hover:opacity-90 disabled:opacity-40"
+                            >
+                              <Send className="size-3.5" />
+                              发送
+                            </button>
+                          </div>
+                        </div>
                       ) : (
+                        <div className="whitespace-pre-wrap">{m.content}</div>
+                      )}
+                      {isUser && !isEditing && (
+                        <div
+                          className={cn(
+                            "mt-1 flex justify-end gap-0.5",
+                            // 桌面 hover 显示；触屏（hover 不可用）常显
+                            "opacity-0 transition-opacity group-hover:opacity-100 hover-none:opacity-100"
+                          )}
+                        >
+                          {editable && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingDraft(m.content);
+                                setEditingId(m.id);
+                              }}
+                              disabled={loading}
+                              className={cn(
+                                "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-primary-foreground/80",
+                                "transition-colors hover:bg-primary-foreground/10",
+                                loading && "opacity-40"
+                              )}
+                              aria-label="编辑消息"
+                            >
+                              <Pencil className="size-3.5" />
+                              编辑
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void copyMessage(m.id, m.content)}
+                            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-primary-foreground/80 transition-colors hover:bg-primary-foreground/10"
+                            aria-label="复制消息"
+                          >
+                            {copiedId === m.id ? (
+                              <>
+                                <Check className="size-3.5" />
+                                已复制
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-3.5" />
+                                复制
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                      {!isUser && (
                         <>
                           <div className="markdown-body">
                             <ReactMarkdown
@@ -579,15 +724,25 @@ export default function AgentPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void shareMessage(m.content)}
+                              onClick={() => void shareConversation()}
                               className={cn(
                                 "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground",
                                 "transition-colors hover:bg-accent hover:text-foreground"
                               )}
-                              aria-label="分享回复"
+                              aria-label="分享会话"
+                              title="生成会话分享链接"
                             >
-                              <Share2 className="size-3.5" />
-                              分享
+                              {copiedId === "share" ? (
+                                <>
+                                  <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  已复制
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="size-3.5" />
+                                  分享
+                                </>
+                              )}
                             </button>
                           </div>
                         </>

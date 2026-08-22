@@ -15,8 +15,8 @@
 export type Verdict = 'go' | 'no-go' | 'insufficient-data';
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
-  go: '通过（Go）',
-  'no-go': '未通过（No-Go）',
+  go: '通过',
+  'no-go': '未通过',
   'insufficient-data': '数据不足（延长观察期）',
 };
 
@@ -96,21 +96,21 @@ export function evaluateValue(
   const checks: ThresholdCheck[] = [
     {
       key: 'watchlist_add',
-      label: '观察列表添加率（watchlist_add / 独立访问）',
+      label: '观察列表添加率（添加观察列表的用户占比）',
       value: watchlistAddRate,
       threshold: t.watchlistAddRate,
       pass: null,
     },
     {
       key: 'weekly_return',
-      label: '周回访率（本周去重 session 中上周也出现过的比例）',
+      label: '周回访率（上周访问过的用户本周再次访问的比例）',
       value: weekly ?? 0,
       threshold: t.weeklyReturnRate,
       pass: null,
     },
     {
       key: 'thread_expand',
-      label: '线索展开率（thread_expand / 独立访问）',
+      label: '线索展开率（展开过事件线索的用户占比）',
       value: threadExpandRate,
       threshold: t.threadExpandRate,
       pass: null,
@@ -121,7 +121,7 @@ export function evaluateValue(
       value: 0,
       threshold: 0,
       pass: null,
-      note: '无独立反馈渠道，此项按通过计（口径限制：仅统计埋点数据）',
+      note: '暂无独立反馈渠道，此项暂按通过计',
     },
   ];
 

@@ -53,7 +53,7 @@ export default function ValueReportPage() {
               价值验证报告
             </h1>
             <span className="text-xs text-muted-foreground ml-auto">
-              P2.5 · M2 关卡 · 数据窗口 7 天
+              数据窗口：最近 7 天
             </span>
           </div>
 
@@ -86,11 +86,11 @@ export default function ValueReportPage() {
                 )}
                 <div>
                   <p className="text-sm font-semibold text-foreground">
-                    Phase 3 判定：{VERDICT_LABELS[report.verdict] || report.verdict}
+                    当前结论：{VERDICT_LABELS[report.verdict] || report.verdict}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    独立访问（去重 session）{report.metrics.uniqueSessions} 人次
-                    {report.verdict === "insufficient-data" && " · 低于最小样本量 100/周（R5），延长观察期后再判定"}
+                    独立访问 {report.metrics.uniqueSessions} 人次
+                    {report.verdict === "insufficient-data" && " · 样本量不足（建议每周 100 人次），延长观察期后再判定"}
                   </p>
                 </div>
               </div>
@@ -169,7 +169,7 @@ export default function ValueReportPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
-                  周回访率（跨周去重 session 占比）：{" "}
+                  周回访率（上周访问过的用户本周再次访问的比例）：{" "}
                   {report.weeklyReturnRate === null
                     ? "无数据"
                     : `${(report.weeklyReturnRate * 100).toFixed(1)}%`}

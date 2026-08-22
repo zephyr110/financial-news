@@ -8,7 +8,7 @@
  *   4. 输出为纯文本 → 视为最终回答，入库并返回
  * 循环全程持久化（模型可见即记录，spec §10.2 原则2）。
  */
-import { appendAgentMessage, createAgentSession, touchAgentSession, logEvent, EVENT_TYPES } from '../db';
+import { appendAgentMessage, createAgentSession, touchAgentSession, editAgentMessage, logEvent, EVENT_TYPES } from '../db';
 import { chatCompletion } from '../llm/client';
 import { LLM_CONFIG } from '../llm/config';
 import type { AgentTurnResult } from './types';
@@ -54,6 +54,8 @@ export function tryParseToolCall(content: string): { tool?: string; args?: Recor
 export interface RunTurnOptions {
   sessionId?: number;
   userMessage: string;
+  /** 编辑重发：替换该消息内容并删除其后全部消息，不再追加新用户消息 */
+  editingId?: number;
   /** SSE 流式事件回调（tool_start / tool_end / delta / done） */
   onEvent?: (event: AgentTurnEvent) => void;
 }
@@ -62,7 +64,7 @@ export type AgentTurnEvent =
   | { type: 'tool_start'; tool: string; args: Record<string, unknown> }
   | { type: 'tool_end'; tool: string; ok: boolean; summary: string }
   | { type: 'delta'; text: string }
-  | { type: 'done'; sessionId: number; reply: string; steps: number; toolLog: AgentTurnResult['toolLog']; truncated: boolean };
+  | { type: 'done'; sessionId: number; reply: string; steps: number; toolLog: AgentTurnResult['toolLog']; truncated: boolean; userMessageId: number };
 
 /**
  * 执行一轮研究对话：入库 → 循环 → 持久化。
@@ -81,11 +83,20 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
   let sessionId: number;
   try {
     sessionId = opts.sessionId ?? (await createAgentSession(opts.userMessage.slice(0, 20)));
-    if (opts.sessionId == null) {
-      await appendAgentMessage(sessionId, 'user', opts.userMessage);
-    } else {
-      await appendAgentMessage(sessionId, 'user', opts.userMessage);
+    // 编辑重发：替换既有用户消息并截断其后内容，供本轮重新生成回复
+    let userMessageId: number;
+    if (opts.editingId != null) {
+      const ok = await editAgentMessage(sessionId, opts.editingId, opts.userMessage);
+      if (!ok) {
+        throw new Error('要编辑的消息不存在或不属于当前会话');
+      }
+      userMessageId = opts.editingId;
       await touchAgentSession(sessionId, opts.userMessage.slice(0, 20));
+    } else {
+      userMessageId = await appendAgentMessage(sessionId, 'user', opts.userMessage);
+      if (opts.sessionId != null) {
+        await touchAgentSession(sessionId, opts.userMessage.slice(0, 20));
+      }
     }
     await logEvent(EVENT_TYPES.AGENT_QUERY, { entityId: sessionId, payload: { message: opts.userMessage.slice(0, 100) } });
 
@@ -124,8 +135,8 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
         reply = contentText;
         await appendAgentMessage(sessionId, 'assistant', reply);
         await touchAgentSession(sessionId);
-        emit({ type: 'done', sessionId, reply, steps: steps + 1, toolLog, truncated: false });
-        return { sessionId, reply, steps: steps + 1, toolLog, truncated: false };
+        emit({ type: 'done', sessionId, reply, steps: steps + 1, toolLog, truncated: false, userMessageId });
+        return { sessionId, reply, steps: steps + 1, toolLog, truncated: false, userMessageId };
       }
 
       const tool = getTool(toolCall.tool);
@@ -173,8 +184,8 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
     reply = `已达到单轮工具调用上限（${MAX_STEPS} 步），以下是目前掌握的信息。如需继续深入，请追问。`;
     await appendAgentMessage(sessionId, 'assistant', reply);
     await touchAgentSession(sessionId);
-    emit({ type: 'done', sessionId, reply, steps, toolLog, truncated: true });
-    return { sessionId, reply, steps, toolLog, truncated: true };
+    emit({ type: 'done', sessionId, reply, steps, toolLog, truncated: true, userMessageId });
+    return { sessionId, reply, steps, toolLog, truncated: true, userMessageId };
   } catch (err) {
     // 错误时携带已创建的 sessionId：客户端失败重试可续用同一会话，避免孤儿会话
     if (sessionId != null) (err as Error & { sessionId?: number }).sessionId = sessionId;
