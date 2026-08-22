@@ -57,6 +57,27 @@ export async function finishPipelineRun(
 }
 
 /**
+ * 距该 job 最近一次成功运行的时间间隔是否 < minIntervalMs。
+ * 用于重型端点节流（回测全量重建、事件线索 LLM 检测）：
+ * 调度频率（如 QStash 每 30 分钟）远高于任务需要的频率时，
+ * 跳过未到间隔的调用，避免行读取/LLM 用量被高频调度推爆。
+ */
+export async function isJobFresh(jobName: PipelineJob, minIntervalMs: number): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: `SELECT finished_at FROM pipeline_run
+          WHERE job_name = ? AND status = 'success'
+          ORDER BY finished_at DESC LIMIT 1`,
+    args: [jobName],
+  });
+  const finishedAt = result.rows[0]?.finished_at;
+  if (!finishedAt) return false;
+  const t = new Date(String(finishedAt).includes('T') ? String(finishedAt) : String(finishedAt).replace(' ', 'T') + 'Z').getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < minIntervalMs;
+}
+
+/**
  * 包裹一次管线任务：开始写状态 → 执行 → 成功/失败写终态。
  * getItems 从任务返回值提取处理条数（无则记 null）。
  */
