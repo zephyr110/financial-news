@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useTheme } from "next-themes";
-import { LogOut, Monitor, Moon, Settings, Sun, User } from "lucide-react";
+import { LogOut, Monitor, Moon, Settings, Sun, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   DropdownMenu,
@@ -84,7 +84,7 @@ export default function AvatarMenu() {
           <DropdownMenuContent align="start" side="right" sideOffset={8} className="w-48">
             <DropdownMenuGroup>
               <DropdownMenuLabel className="flex items-center gap-2">
-                <User className="size-4 text-muted-foreground" />
+                <UserRound className="size-4 text-muted-foreground" />
                 <span className="truncate">{username}</span>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
