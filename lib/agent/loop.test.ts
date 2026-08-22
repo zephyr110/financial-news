@@ -59,6 +59,19 @@ describe('tryParseToolCall', () => {
   it('JSON 但缺少 tool 字段返回 null', () => {
     expect(tryParseToolCall('{"foo":"bar"}')).toBeNull();
   });
+
+  it('散文里引用工具调用 JSON 不解析（避免误执行）', () => {
+    expect(tryParseToolCall('好的，模型输出了 {"tool":"search_news","args":{"query":"存储"}}，但显示异常。')).toBeNull();
+  });
+
+  it('截断的 JSON 工具调用被修复补全为合法调用', () => {
+    const r = tryParseToolCall('{"tool":"get_industry_heatmap","args":{"');
+    expect(r?.tool).toBe('get_industry_heatmap');
+  });
+
+  it('无法修复的 JSON 形状返回 null（交由格式错误回喂）', () => {
+    expect(tryParseToolCall('{"tool":')).toBeNull();
+  });
 });
 
 describe('runAgentTurn', () => {
@@ -109,7 +122,34 @@ describe('runAgentTurn', () => {
     expect(result.steps).toBe(3);
     expect(result.toolLog).toHaveLength(1); // 只有第二次（合法）调用执行了工具
     expect(result.reply).toContain('存储行业');
-    expect(db.appendAgentMessage.mock.calls.some((c) => c[2].includes('参数错误'))).toBe(true);
+    // 反馈以 system 角色持久化：历史重放渲染为居中提示，而非伪用户气泡
+    expect(db.appendAgentMessage.mock.calls.some((c) => c[1] === 'system' && c[2].includes('参数错误'))).toBe(true);
+  });
+
+  it('截断/损坏的 JSON 工具调用 → 【格式错误】回喂重试 → 最终回答（用户不再看到原始截断 JSON）', async () => {
+    llm.chatCompletion
+      .mockResolvedValueOnce({ content: '{"tool":' })
+      .mockResolvedValueOnce({ content: '{"tool":"search_news","args":{"query":"存储"}}' })
+      .mockResolvedValueOnce({ content: '存储行业近期信号最强。' });
+
+    const result = await runAgentTurn({ userMessage: '存储现在什么情况？' });
+
+    expect(result.steps).toBe(3);
+    expect(result.toolLog).toHaveLength(1);
+    expect(result.reply).toBe('存储行业近期信号最强。');
+    // 格式错误反馈以 system 角色持久化；截断 JSON 绝不以 assistant 落库
+    expect(db.appendAgentMessage.mock.calls.some((c) => c[1] === 'system' && c[2].includes('格式错误'))).toBe(true);
+    expect(db.appendAgentMessage.mock.calls.some((c) => c[2] === '{"tool":')).toBe(false);
+  });
+
+  it('散文引用工具 JSON 的回答不执行工具，直接作为最终回答', async () => {
+    llm.chatCompletion.mockResolvedValueOnce({ content: '之前模型输出了 {"tool":"search_news","args":{"query":"存储"}}，但那是一次异常显示。' });
+
+    const result = await runAgentTurn({ userMessage: '为什么显示 JSON' });
+
+    expect(result.steps).toBe(1);
+    expect(result.toolLog).toHaveLength(0);
+    expect(result.reply).toContain('异常显示');
   });
 
   it('JSON 后校正：尾逗号等损坏 JSON 仍可解析为工具调用', async () => {

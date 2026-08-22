@@ -6,6 +6,25 @@ import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, C
 import AppShell from "../components/app-shell";
 import SessionSidebarGroup from "../components/SessionSidebarGroup";
 import AgentCodeBlock from "../components/agent-code-block";
+
+// ReactMarkdown v10：components/remarkPlugins 引用变化会触发全部 markdown 重新解析。
+// 提升为模块级常量，避免父组件每次 render（如输入框击键）都重建引用导致重解析
+const MARKDOWN_REMARK_PLUGINS = [remarkGfm];
+const MARKDOWN_COMPONENTS = {
+  // 链接新开页，避免打断对话
+  a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+  // 代码块：参考 zlog CodeBlock——顶栏（语言标签 + 复制）+ 圆角容器
+  pre: ({ node: _node, children }) => {
+    const codeEl = isValidElement(children) ? children : null;
+    const cls = (codeEl?.props as { className?: string } | undefined)?.className ?? "";
+    const lang = (cls.match(/language-([\w-]+)/) || [])[1] || "";
+    return (
+      <AgentCodeBlock lang={lang}>
+        {(codeEl?.props as { children?: unknown } | undefined)?.children ?? children}
+      </AgentCodeBlock>
+    );
+  },
+};
 import { Button } from "../components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "../components/ui/alert";
 import { Textarea } from "../components/ui/textarea";
@@ -312,7 +331,10 @@ export default function AgentPage() {
           } else if (event === "done") {
             doneSessionId = payload.sessionId;
             toolLogs = payload.toolLog || [];
-            const reply = streamText || payload.reply || "";
+            // 最终回复以服务端确定性管道输出为准（含截断标注）。流式累积文本只作
+            // 兜底——工具调用 JSON 的 delta 残留（格式错误回喂/参数错误等路径）不应
+            // 成为回复内容
+            const reply = payload.reply || streamText || "";
             // 乐观用户消息替换为数据库消息（拿到真实 id，后续编辑重发可用）
             if (!editing && payload.userMessageId) {
               setMessages((prev) =>
@@ -323,10 +345,10 @@ export default function AgentPage() {
                 )
               );
             }
-            // 工具日志附加到最终回复气泡（若无 delta 累积则新建消息）
+            // 工具日志附加到最终回复气泡：有流式消息则就地更新为服务端回复，否则新建
             setMessages((prev) =>
               streamMsgId
-                ? prev.map((m) => (m.id === streamMsgId ? { ...m, toolLog: toolLogs } : m))
+                ? prev.map((m) => (m.id === streamMsgId ? { ...m, content: reply, toolLog: toolLogs } : m))
                 : [...prev, { id: `reply-${Date.now()}`, role: "assistant" as const, content: reply, toolLog: toolLogs }]
             );
           } else if (event === "error") {
@@ -651,24 +673,8 @@ export default function AgentPage() {
                         <>
                           <div className="markdown-body">
                             <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                // 链接新开页，避免打断对话
-                                a: ({ node: _node, ...props }) => (
-                                  <a {...props} target="_blank" rel="noopener noreferrer" />
-                                ),
-                                // 代码块：参考 zlog CodeBlock——顶栏（语言标签 + 复制）+ 圆角容器
-                                pre: ({ node: _node, children }) => {
-                                  const codeEl = isValidElement(children) ? children : null;
-                                  const cls = (codeEl?.props as { className?: string } | undefined)?.className ?? "";
-                                  const lang = (cls.match(/language-([\w-]+)/) || [])[1] || "";
-                                  return (
-                                    <AgentCodeBlock lang={lang}>
-                                      {(codeEl?.props as { children?: unknown } | undefined)?.children ?? children}
-                                    </AgentCodeBlock>
-                                  );
-                                },
-                              }}
+                              remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+                              components={MARKDOWN_COMPONENTS}
                             >
                               {m.content}
                             </ReactMarkdown>

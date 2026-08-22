@@ -13,6 +13,14 @@ function summarizeList(rows, fields, limit = 10) {
   return rows.slice(0, limit).map((r) => fields.map((f) => r[f]).join(' | ')).join('\n');
 }
 
+/** 数字参数安全转换：undefined/null/空串 → 默认值；NaN → 默认值；合法数字原样返回。
+ *  不用 `Number(x) || fallback`——`Number("0")` 为 0（falsy）会被误吞为默认值。 */
+export function numArg(v: unknown, fallback: number): number {
+  if (v === undefined || v === null || v === '') return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const RESEARCH_TOOLS: ToolDefinition[] = [
   {
     name: 'search_news',
@@ -34,9 +42,9 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       if (query.length < 2) return 'query 至少 2 个字符。'; // 空查询直接提示，勿误导为"无结果"（C22）
       const result = await searchSignals({
         query,
-        hoursBack: Number(args.hoursBack) || 720,
-        minScore: Number(args.minScore) || 1,
-        limit: Number(args.limit) || 10,
+        hoursBack: numArg(args.hoursBack, 720),
+        minScore: numArg(args.minScore, 1),
+        limit: numArg(args.limit, 10),
       });
       if (result.items.length === 0) return '未找到匹配信号。';
       return [
@@ -62,7 +70,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       },
     },
     async execute(args) {
-      const threads = await getEventThreads(Number(args.hoursBack) || 24);
+      const threads = await getEventThreads(numArg(args.hoursBack, 24));
       if (threads.length === 0) return '当前时间窗内没有事件线索。';
       return threads.map((t) =>
         `#${t.id} [${t.stage}] ${t.title}（置信度:${t.confidence}，涉及行业:${(t.industries || []).join('/')}，` +
@@ -83,7 +91,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       },
     },
     async execute(args) {
-      const hoursBack = Number(args.hoursBack) || 24;
+      const hoursBack = numArg(args.hoursBack, 24);
       const heatmap = await getIndustryHeatmap(hoursBack);
       if (heatmap.length === 0) return '该时间窗内没有行业信号数据。';
       const top = heatmap.slice(0, 12);
@@ -106,7 +114,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       },
     },
     async execute(args) {
-      const rows = await getBacktestByIndustry(Number(args.daysBack) || 30);
+      const rows = await getBacktestByIndustry(numArg(args.daysBack, 30));
       if (rows.length === 0) return '暂无回测数据（需要积累足够历史信号）。';
       const filtered = args.industry
         ? rows.filter((r) => (r.industry as string).includes(String(args.industry)))
@@ -115,7 +123,7 @@ export const RESEARCH_TOOLS: ToolDefinition[] = [
       const lines = filtered.slice(0, 10).map((r) =>
         `${r.industry}: ${r.samples}次样本 1日${r.avg_d1}% 3日${r.avg_d3}% 7日${r.avg_d7}% 胜率${r.win_rate}%`
       );
-      return `行业信号回测统计（近${Number(args.daysBack) || 30}天）：\n${lines.join('\n')}`;
+      return `行业信号回测统计（近${numArg(args.daysBack, 30)}天）：\n${lines.join('\n')}`;
     },
   },
   {
