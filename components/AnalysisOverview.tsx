@@ -12,6 +12,8 @@ const CARDS = [
     textColor: "text-white",
     mutedColor: "text-blue-50",
     ringColor: "ring-blue-400/40",
+    badgeClass:
+      "border-blue-200/70 bg-background/95 text-foreground shadow-sm backdrop-blur-sm dark:border-blue-400/25",
   },
   {
     key: "critical",
@@ -21,6 +23,8 @@ const CARDS = [
     textColor: "text-white",
     mutedColor: "text-rose-50",
     ringColor: "ring-rose-400/40",
+    badgeClass:
+      "border-rose-200/70 bg-background/95 text-foreground shadow-sm backdrop-blur-sm dark:border-rose-400/25",
   },
   {
     key: "significant",
@@ -30,6 +34,8 @@ const CARDS = [
     textColor: "text-white",
     mutedColor: "text-amber-50",
     ringColor: "ring-amber-400/40",
+    badgeClass:
+      "border-amber-200/70 bg-background/95 text-foreground shadow-sm backdrop-blur-sm dark:border-amber-400/25",
   },
   {
     key: "max",
@@ -39,6 +45,8 @@ const CARDS = [
     textColor: "text-white",
     mutedColor: "text-emerald-50",
     ringColor: "ring-emerald-400/40",
+    badgeClass:
+      "border-emerald-200/70 bg-background/95 text-foreground shadow-sm backdrop-blur-sm dark:border-emerald-400/25",
   },
 ];
 
@@ -99,7 +107,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
 
   return (
     <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 mb-6">
-      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor }) => {
+      {CARDS.map(({ key, icon: Icon, label, gradient, textColor, mutedColor, ringColor, badgeClass }) => {
         const active = filter === key;
         const { value, sub, trendCurrent, trendPrevious } = values[key];
 
@@ -145,18 +153,14 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
               {sub}
             </div>
 
-            {/* Trend delta — badge（白底半透明）在渐变卡片上保持可读（用户反馈：绿色字体与背景混淆） */}
+            {/* Trend delta — 中性底 + 卡片色系描边，与渐变背景区分；涨跌色由 TrendDelta 语义着色 */}
             {trendCurrent != null && trendPrevious != null && (
               <div className="relative mt-1.5">
-                <Badge
-                  variant="outline"
-                  className="border-white/25 bg-white/15 text-white hover:bg-white/20"
-                >
+                <Badge variant="outline" className={badgeClass}>
                   <TrendDelta
                     current={trendCurrent as number}
                     previous={trendPrevious as number}
                     label="昨日"
-                    className="text-white"
                   />
                 </Badge>
               </div>

@@ -1,6 +1,8 @@
-# Financial Signals
+# Financial Signal
 
 AI-powered financial news aggregation & policy-industry signal analysis engine.
+
+Repository: [github.com/zephyr110/financial-signal](https://github.com/zephyr110/financial-signal)
 
 **Live Demo:** [https://financial-news-nine.vercel.app](https://financial-news-nine.vercel.app)
 
@@ -73,7 +75,7 @@ pnpm typecheck  # tsc --noEmit
 
 ## Deployment
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-news)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zephyr110/financial-signal)
 
 1. Create a database on [Turso](https://turso.tech)
 2. Set Vercel env vars: `LLM_API_KEY`, `CRON_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`

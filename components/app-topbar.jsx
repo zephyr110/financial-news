@@ -1,6 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { SidebarTrigger } from "./ui/sidebar";
 import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,13 +16,19 @@ export default function AppTopbar({ title, subtitle = null, actions = null }) {
         className="-ml-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         aria-label="切换侧栏"
       />
-      <div className="flex min-w-0 items-baseline gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {/* 顶栏标题用 p：页面内容区有自己的 h1，避免每页双 h1（SEO/层级） */}
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
         {subtitle && (
-          <span className="hidden md:inline truncate text-xs text-muted-foreground">
-            {subtitle}
-          </span>
+          <>
+            <Separator
+              orientation="vertical"
+              className="hidden md:block h-3.5"
+            />
+            <span className="hidden md:inline truncate text-xs text-muted-foreground">
+              {subtitle}
+            </span>
+          </>
         )}
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div>

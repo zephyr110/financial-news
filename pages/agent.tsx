@@ -384,7 +384,7 @@ export default function AgentPage() {
             <div
               className={cn(
                 "mx-auto max-w-[760px] lg:max-w-[880px] xl:max-w-[960px] 2xl:max-w-[1120px] px-4 sm:px-6 py-6",
-                isEmpty && "flex min-h-full flex-col items-center justify-center"
+                (isEmpty || loadingHistory) && "flex min-h-full flex-col items-center justify-center"
               )}
             >
               {error && (
@@ -396,7 +396,7 @@ export default function AgentPage() {
 
               <div className="space-y-5">
               {loadingHistory && (
-                <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
+                <div className="flex items-center justify-center text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="ml-2 text-xs">正在加载会话…</span>
                 </div>
@@ -486,19 +486,25 @@ export default function AgentPage() {
                 }
                 const isUser = m.role === "user";
                 return (
-                  <div key={m.id} className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "flex gap-3",
+                      isUser ? "justify-end" : "items-start justify-start"
+                    )}
+                  >
                     {!isUser && (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary mt-0.5">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                         <Bot className="h-4 w-4" />
                       </span>
                     )}
                     <div
                       className={cn(
-                        "max-w-[85%] whitespace-pre-wrap text-sm leading-relaxed",
+                        "max-w-[85%] whitespace-pre-wrap text-sm",
                         isUser
                           ? // 用户气泡：primary 蓝（明暗主题自适应）+ 右上角直角，其余三角保持圆角
-                            "rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
-                          : "text-foreground"
+                            "leading-relaxed rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
+                          : "leading-7 text-foreground"
                       )}
                     >
                       {m.content}
@@ -515,11 +521,11 @@ export default function AgentPage() {
               })}
 
               {loading && (
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <div className="flex items-start justify-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Bot className="h-4 w-4" />
                   </span>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="inline-flex h-7 items-center gap-2 text-sm leading-7 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在研究…
                   </div>

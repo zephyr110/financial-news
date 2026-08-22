@@ -18,44 +18,56 @@ interface SignalBadgeProps {
   score: number;
   size?: "sm" | "md" | "lg";
   clickable?: boolean;
+  /** 为 true 时展示 1–2 分（虚线圆 + 数字）；默认隐藏以减少噪声 */
+  showLowScores?: boolean;
   className?: string;
 }
 
 /**
- * Reusable signal score circular badge.
- * Mirrors SCORE_COLORS from lib/constants.ts.
+ * 信号分圆形徽章，与 lib/constants SCORE_COLORS 配色一致。
  *
- * - score 3-5: filled colored circle with number
- * - score 2:   optionally hidden by default (showBelow=3 default)
- * - score 1:   hidden by default
- * - score null/undefined/0: empty circle (unanalyzed state)
+ * - 3–5 分：实心彩色圆 + 数字
+ * - 1–2 分：虚线圆 + 数字（需 showLowScores）
+ * - 0 / null / NaN：点线空圆，表示待分析
  */
 export default function SignalBadge({
   score,
   size = "md",
   clickable = false,
+  showLowScores = false,
   className,
 }: SignalBadgeProps) {
-  // null/0/NaN/undefined → unanalyzed placeholder
-  if (score == null || score === 0 || Number.isNaN(score)) {
+  const isUnanalyzed = score == null || score === 0 || Number.isNaN(score);
+
+  if (isUnanalyzed) {
     return (
       <span
         className={cn(
-          "inline-flex items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/50 shrink-0",
+          "inline-block shrink-0 rounded-full border border-dotted border-muted-foreground/35 bg-muted/20",
           SIZE_CLASSES[size],
           className
         )}
         title="待分析"
         aria-label="待分析"
-      >
-        ○
-      </span>
+      />
     );
   }
 
-  // score 1-2: hide to reduce noise (override with className if needed)
   if (score <= 2) {
-    return null;
+    if (!showLowScores) return null;
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center justify-center rounded-full border border-dashed border-muted-foreground/40 font-medium text-muted-foreground shrink-0",
+          SIZE_CLASSES[size],
+          className
+        )}
+        title={`低分信号（${score} 分）`}
+        aria-label={`低分信号 ${score} 分`}
+      >
+        {score}
+      </span>
+    );
   }
 
   const style = SCORE_STYLES[score] || SCORE_STYLES[3];
