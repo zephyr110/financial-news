@@ -786,6 +786,13 @@ export async function getEventThreadById(id: number) {
 
 // ── Agent Session CRUD（研究 Agent 持久化） ──
 
+/** 会话是否存在（前端缓存了已删除会话时，发消息前校验防外键错误）。 */
+export async function agentSessionExists(sessionId: number): Promise<boolean> {
+  const db = await getDb();
+  const r = await db.execute({ sql: 'SELECT id FROM agent_session WHERE id = ?', args: [sessionId] });
+  return r.rows.length > 0;
+}
+
 /** 创建研究会话，返回 session id。 */
 export async function createAgentSession(title = '新会话') {
   const db = await getDb();

@@ -166,6 +166,15 @@ export default function AgentPage() {
       setMessages([]);
       try {
         const res = await fetch(`/api/agent-sessions?id=${id}`);
+        // 会话不存在（已被删除/数据库重建）：清掉残留缓存，回到新会话状态，避免
+        // 后续发送带着失效 sessionId 触发服务端外键错误（500「研究助手暂时不可用」）
+        if (res.status === 404) {
+          setSessionId(null);
+          persistSession(null);
+          setMessages([]);
+          setLoadingHistory(false);
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setMessages(historyToChatItems(data.messages || []));

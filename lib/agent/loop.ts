@@ -8,7 +8,7 @@
  *   4. 输出为纯文本 → 视为最终回答，入库并返回
  * 循环全程持久化（模型可见即记录，spec §10.2 原则2）。
  */
-import { appendAgentMessage, createAgentSession, touchAgentSession, editAgentMessage, logEvent, EVENT_TYPES } from '../db';
+import { appendAgentMessage, createAgentSession, touchAgentSession, editAgentMessage, logEvent, agentSessionExists, EVENT_TYPES } from '../db';
 import { chatCompletion } from '../llm/client';
 import { LLM_CONFIG } from '../llm/config';
 import type { AgentTurnResult } from './types';
@@ -73,9 +73,21 @@ export type AgentTurnEvent =
  * 流式：opts.onEvent 提供后，工具调用与最终回答的生成过程实时推送
  * （最终回答经 chatCompletion stream 逐字回调）。
  */
-export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResult & { sessionId: number }> {
+export async function runAgentTurn(input: RunTurnOptions): Promise<AgentTurnResult & { sessionId: number }> {
   if (!LLM_CONFIG.apiKey) {
     throw new Error('LLM_API_KEY not configured. Set LLM_API_KEY (or DEEPSEEK_API_KEY) environment variable.');
+  }
+
+  // 防御悬空 sessionId：浏览器 localStorage 可能缓存了已删除的会话。直接使用会在
+  // 插入消息时触发外键约束错误（SQLITE_CONSTRAINT）→ 500。静默回退为新建会话，
+  // 前端拿到新 sessionId 后自动续用，用户无感。
+  let opts = input;
+  if (opts.sessionId != null) {
+    const exists = await agentSessionExists(opts.sessionId);
+    if (!exists) {
+      console.warn(`[agent] session ${opts.sessionId} not found, falling back to a new session`);
+      opts = { ...opts, sessionId: undefined };
+    }
   }
 
   const emit = opts.onEvent ?? (() => {});
