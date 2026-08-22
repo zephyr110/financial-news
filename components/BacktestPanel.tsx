@@ -56,10 +56,10 @@ export default function BacktestPanel() {
         className="w-full flex items-center gap-3 p-4 sm:p-5 text-left hover:bg-accent/30 transition-colors"
       >
         <div className="min-w-0 flex-1">
-          <h3 className="text-xs sm:text-sm font-medium text-foreground">
+          <h3 className="text-sm font-semibold text-foreground">
             信号有效性回测
           </h3>
-          <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             信号出现后行业指数后续涨跌幅 · 近 90 天 · 胜率 = T+1 上涨样本占比
           </p>
         </div>
@@ -73,18 +73,19 @@ export default function BacktestPanel() {
 
       <div
         className={cn(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          open ? "max-h-[1200px] opacity-100" : "max-h-0 opacity-0"
+          "grid transition-all duration-300 ease-in-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
+        <div className="overflow-hidden min-h-0">
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t pt-3">
           {loading ? (
             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-[11px] sm:text-xs">加载中…</span>
+              <span className="text-xs">加载中…</span>
             </div>
           ) : !hasData ? (
-            <div className="text-center py-8 text-[11px] sm:text-xs text-muted-foreground">
+            <div className="text-center py-8 text-xs text-muted-foreground">
               暂无数据，信号和行情积累后自动生成
             </div>
           ) : (
@@ -95,7 +96,7 @@ export default function BacktestPanel() {
                   type="button"
                   onClick={() => setTab("industry")}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-[11px] sm:text-xs transition-colors",
+                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-xs transition-colors",
                     tab === "industry"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -108,7 +109,7 @@ export default function BacktestPanel() {
                   type="button"
                   onClick={() => setTab("score")}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-[11px] sm:text-xs transition-colors",
+                    "inline-flex items-center gap-1 px-2.5 h-8 rounded-md text-xs transition-colors",
                     tab === "score"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -120,7 +121,7 @@ export default function BacktestPanel() {
               </div>
 
               {/* Header */}
-              <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-[10px] text-muted-foreground px-1">
+              <div className="hidden sm:grid grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 mb-1 text-xs text-muted-foreground px-1">
                 <span>{tab === "industry" ? "行业" : "分数"}</span>
                 <span>{tab === "industry" ? "均分" : ""}</span>
                 <span>T+1</span>
@@ -143,11 +144,11 @@ export default function BacktestPanel() {
                         key={`${row.industry}-${row.signal_score}`}
                         className="grid grid-cols-[1fr_48px_1fr] sm:grid-cols-[1fr_48px_repeat(3,1fr)_80px] gap-2 items-center py-2 px-1 border-t first:border-t-0 hover:bg-accent/20 rounded transition-colors"
                       >
-                        <span className="text-[11px] sm:text-xs font-medium text-foreground truncate">
+                        <span className="text-xs font-medium text-foreground truncate">
                           {row.industry}
                           <span
                             className={cn(
-                              "ml-1.5 text-[9px] px-1 py-0.5 rounded align-middle",
+                              "ml-1.5 text-xs px-1 py-0.5 rounded align-middle",
                               tier === "sufficient"
                                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
                                 : tier === "reference"
@@ -159,7 +160,7 @@ export default function BacktestPanel() {
                           </span>
                         </span>
                         <ScoreBadge score={row.signal_score} />
-                        <div className="sm:hidden text-[11px] text-muted-foreground">
+                        <div className="sm:hidden text-xs text-muted-foreground">
                           {showNumbers
                             ? `T+1 ${fmtPct(row.avg_d1, tier)} · T+3 ${fmtPct(row.avg_d3, tier)} · T+7 ${fmtPct(row.avg_d7, tier)}`
                             : tierProgress(row.samples)}
@@ -183,7 +184,7 @@ export default function BacktestPanel() {
                     >
                       <ScoreBadge score={row.signal_score} />
                       <span className="w-6" />
-                      <div className="sm:hidden text-[11px] text-muted-foreground">
+                      <div className="sm:hidden text-xs text-muted-foreground">
                         T+1 {fmtPct(row.avg_d1)} · T+3 {fmtPct(row.avg_d3)} · T+7 {fmtPct(row.avg_d7)}
                       </div>
                       <ReturnCell value={row.avg_d1} />
@@ -195,6 +196,7 @@ export default function BacktestPanel() {
             </>
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -205,7 +207,7 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0 w-6 h-6 text-[10px]",
+        "inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0 w-6 h-6",
         score >= 5
           ? "bg-red-600 text-white"
           : score >= 4
@@ -221,7 +223,7 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
 function ReturnCell({ value, show = true, tier }: { value: number; show?: boolean; tier?: BacktestTier }) {
   if (!show || value == null)
     return (
-      <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:block">
+      <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
         —
       </span>
     );
@@ -230,7 +232,7 @@ function ReturnCell({ value, show = true, tier }: { value: number; show?: boolea
   return (
     <span
       className={cn(
-        "hidden sm:flex items-center gap-1 text-[11px] sm:text-xs font-medium tabular-nums",
+        "hidden sm:flex items-center gap-1 text-xs font-medium tabular-nums",
         isPositive
           ? "text-red-600 dark:text-red-400"
           : value < 0
@@ -257,7 +259,7 @@ function WinRateCell({ rate, show = true, tier }: { rate: number; show?: boolean
           style={{ width: show ? `${rate}%` : "100%" }}
         />
       </div>
-      <span className="text-[10px] sm:text-[11px] font-medium tabular-nums w-9 text-right">
+      <span className="text-xs font-medium tabular-nums w-9 text-right">
         {show ? `${tier === "reference" ? "~" : ""}${rate}%` : "—"}
       </span>
     </div>

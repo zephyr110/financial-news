@@ -774,6 +774,19 @@ export async function listAgentSessions(limit = 20) {
   return result.rows;
 }
 
+/** 删除会话及其全部消息（历史对话删除）。 */
+export async function deleteAgentSession(sessionId: number) {
+  const db = await getDb();
+  await db.execute({
+    sql: 'DELETE FROM agent_message WHERE session_id = ?',
+    args: [sessionId],
+  });
+  await db.execute({
+    sql: 'DELETE FROM agent_session WHERE id = ?',
+    args: [sessionId],
+  });
+}
+
 /** 更新会话标题与更新时间。 */
 export async function touchAgentSession(sessionId: number, title?: string) {
   const db = await getDb();

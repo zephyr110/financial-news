@@ -43,7 +43,7 @@ export default function SignalSearchResults({
     return (
       <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-[11px] sm:text-xs">搜索中…</span>
+        <span className="text-xs">搜索中…</span>
       </div>
     );
   }
@@ -53,10 +53,10 @@ export default function SignalSearchResults({
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
         <SearchX className="h-8 w-8" />
-        <p className="text-[12px] sm:text-[13px] font-medium">
+        <p className="text-sm font-medium">
           未找到包含「{query}」的信号
         </p>
-        <p className="text-[11px] sm:text-xs">
+        <p className="text-xs">
           尝试更换关键词或放宽筛选条件
         </p>
       </div>
@@ -67,11 +67,11 @@ export default function SignalSearchResults({
     <div>
       {/* Result count */}
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-xs sm:text-sm font-medium text-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           搜索结果 ({total})
         </h3>
         {query && (
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             「{query}」
           </span>
         )}
@@ -90,29 +90,29 @@ export default function SignalSearchResults({
               <div className="flex items-start gap-2.5">
                 <SignalBadge score={item.signal_score} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] sm:text-[13px] text-foreground leading-relaxed line-clamp-2 group-hover:text-primary transition-colors">
+                  <p className="text-sm text-foreground leading-relaxed line-clamp-2 group-hover:text-primary transition-colors">
                     {item.summary}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     {item.category && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
                         {CATEGORY_LABELS[item.category] || item.category}
                       </span>
                     )}
                     {item.industries?.slice(0, 3).map((ind: string) => (
                       <span
                         key={ind}
-                        className="text-[10px] text-muted-foreground truncate max-w-[80px]"
+                        className="text-xs text-muted-foreground truncate max-w-[80px]"
                       >
                         {ind}
                       </span>
                     ))}
                     {item.source && (
-                      <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                      <span className="text-xs text-muted-foreground ml-auto">
                         {item.source}
                       </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground">
                       {timeStr}
                     </span>
                   </div>
@@ -130,7 +130,7 @@ export default function SignalSearchResults({
             type="button"
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-[11px] sm:text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
           >
             {loadingMore ? (
               <>

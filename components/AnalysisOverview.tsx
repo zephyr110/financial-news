@@ -1,6 +1,7 @@
 import { AlertTriangle, TrendingUp, Zap, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TrendDelta from "./TrendDelta";
+import { Badge } from "./ui/badge";
 
 const CARDS = [
   {
@@ -119,7 +120,7 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
 
             <div className="relative flex items-center gap-1.5 mb-2">
               <Icon className={cn("h-3.5 w-3.5", mutedColor)} />
-              <span className={cn("text-[11px] sm:text-xs font-semibold", mutedColor)}>
+              <span className={cn("text-xs font-semibold", mutedColor)}>
                 {label}
               </span>
             </div>
@@ -138,20 +139,26 @@ export default function AnalysisOverview({ stats, items, loading, filter, onFilt
             )}
 
             <div className={cn(
-              "relative text-[11px] sm:text-xs font-medium",
+              "relative text-xs font-medium",
               mutedColor
             )}>
               {sub}
             </div>
 
-            {/* Trend delta — show on a dark overlay for readability */}
+            {/* Trend delta — badge（白底半透明）在渐变卡片上保持可读（用户反馈：绿色字体与背景混淆） */}
             {trendCurrent != null && trendPrevious != null && (
               <div className="relative mt-1.5">
-                <TrendDelta
-                  current={trendCurrent as number}
-                  previous={trendPrevious as number}
-                  label="昨日"
-                />
+                <Badge
+                  variant="outline"
+                  className="border-white/25 bg-white/15 text-white hover:bg-white/20"
+                >
+                  <TrendDelta
+                    current={trendCurrent as number}
+                    previous={trendPrevious as number}
+                    label="昨日"
+                    className="text-white"
+                  />
+                </Badge>
               </div>
             )}
           </button>

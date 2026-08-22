@@ -25,7 +25,7 @@ export default function IndustrySelector({ industries, watched, onToggle, onClea
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all border",
+          "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all border",
           watched.length > 0
             ? "border-primary bg-primary/10 text-primary"
             : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
@@ -38,14 +38,14 @@ export default function IndustrySelector({ industries, watched, onToggle, onClea
       {open && (
         <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-card border rounded-xl shadow-lg z-50 p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] sm:text-xs font-medium text-foreground">
+            <span className="text-xs font-medium text-foreground">
               选择关注的行业
             </span>
             {watched.length > 0 && (
               <button
                 type="button"
                 onClick={onClear}
-                className="text-[10px] text-muted-foreground hover:text-foreground"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
                 清除全部
               </button>
@@ -62,7 +62,7 @@ export default function IndustrySelector({ industries, watched, onToggle, onClea
                   type="button"
                   onClick={() => onToggle(name)}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium transition-all border",
+                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all border",
                     active
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:border-primary/30"
@@ -71,7 +71,7 @@ export default function IndustrySelector({ industries, watched, onToggle, onClea
                   {active && <Check className="h-3 w-3" />}
                   {name}
                   {ind.signalCount && (
-                    <span className="text-[10px] opacity-60">{ind.signalCount}</span>
+                    <span className="text-xs text-muted-foreground">{ind.signalCount}</span>
                   )}
                 </button>
               );
@@ -79,7 +79,7 @@ export default function IndustrySelector({ industries, watched, onToggle, onClea
           </div>
 
           {available.length === 0 && (
-            <p className="text-[11px] text-muted-foreground text-center py-4">
+            <p className="text-xs text-muted-foreground text-center py-4">
               暂无行业数据
             </p>
           )}

@@ -43,12 +43,12 @@ export default function WatchlistPanel({ items, threads }: Props) {
     <div className="bg-card border rounded-xl p-4 sm:p-5 mb-5">
       <div className="flex items-center gap-2 mb-3">
         <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
-        <h3 className="text-xs sm:text-sm font-medium text-foreground">我的跟踪</h3>
+        <h3 className="text-sm font-semibold text-foreground">我的跟踪</h3>
       </div>
 
       {industries.length > 0 && (
         <div className="mb-3">
-          <span className="text-[10px] text-muted-foreground block mb-1.5">跟踪行业</span>
+          <span className="text-xs text-muted-foreground block mb-1.5">跟踪行业</span>
           <div className="flex flex-wrap gap-1.5">
             {industries.map((w) => {
               const count = items.filter(
@@ -59,12 +59,12 @@ export default function WatchlistPanel({ items, threads }: Props) {
                   key={`industry-${w.id}`}
                   type="button"
                   onClick={() => toggleWatchlist("industry", w.id)}
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground hover:bg-amber-400/20 hover:text-amber-600 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 >
                   <TrendingUp className="h-3 w-3" />
                   {w.id}
                   {count > 0 && (
-                    <span className="text-[10px] text-muted-foreground">({count})</span>
+                    <span className="text-xs text-muted-foreground">({count})</span>
                   )}
                   <X className="h-3 w-3" />
                 </button>
@@ -76,7 +76,7 @@ export default function WatchlistPanel({ items, threads }: Props) {
 
       {signals.length > 0 && (
         <div className="mb-3">
-          <span className="text-[10px] text-muted-foreground block mb-1.5">跟踪信号</span>
+          <span className="text-xs text-muted-foreground block mb-1.5">跟踪信号</span>
           <ul className="space-y-1">
             {signals.map((w) => {
               const sig = signalMeta.get(w.id);
@@ -84,7 +84,7 @@ export default function WatchlistPanel({ items, threads }: Props) {
                 <li key={`signal-${w.id}`} className="flex items-center gap-2">
                   <Link
                     href={`/signal/${w.id}`}
-                    className="text-[12px] sm:text-[13px] text-foreground hover:text-primary truncate flex-1"
+                    className="text-sm text-foreground hover:text-primary truncate flex-1"
                   >
                     {sig?.summary || `信号 #${w.id}`}
                   </Link>
@@ -105,7 +105,7 @@ export default function WatchlistPanel({ items, threads }: Props) {
 
       {threadItems.length > 0 && (
         <div>
-          <span className="text-[10px] text-muted-foreground block mb-1.5">跟踪线索</span>
+          <span className="text-xs text-muted-foreground block mb-1.5">跟踪线索</span>
           <ul className="space-y-1">
             {threadItems.map((w) => {
               const t = threadMeta.get(w.id);
@@ -114,7 +114,7 @@ export default function WatchlistPanel({ items, threads }: Props) {
                   <Link
                     href={`/thread/${w.id}`}
                     className={cn(
-                      "text-[12px] sm:text-[13px] text-foreground hover:text-primary truncate flex-1",
+                      "text-sm text-foreground hover:text-primary truncate flex-1",
                       !t && "text-muted-foreground"
                     )}
                   >

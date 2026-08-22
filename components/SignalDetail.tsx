@@ -126,19 +126,19 @@ export default function SignalDetail({
             </div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
-                className={`text-[11px] sm:text-xs px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[signal.category] || "bg-gray-100 text-gray-700"}`}
+                className={`text-xs px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[signal.category] || "bg-gray-100 text-gray-700"}`}
               >
                 {categoryLabel}
               </span>
               <span
-                className={`text-[11px] sm:text-xs font-medium ${sentimentBadge}`}
+                className={`text-xs font-medium ${sentimentBadge}`}
               >
                 {sentimentLabel}
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 · {impactLabel}信号
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 · {formatDate(signal.published_at)}
               </span>
             </div>
@@ -150,7 +150,7 @@ export default function SignalDetail({
           {signal.industries?.map((ind: string) => (
             <span
               key={ind}
-              className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium"
+              className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium"
             >
               {ind}
             </span>
@@ -158,7 +158,7 @@ export default function SignalDetail({
           {signal.companies?.map((comp: string) => (
             <span
               key={comp}
-              className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full border text-muted-foreground"
+              className="text-xs px-2 py-0.5 rounded-full border text-muted-foreground"
             >
               {comp}
             </span>
@@ -176,16 +176,16 @@ export default function SignalDetail({
 
       {/* ── Deep Analysis ── */}
       <div className="bg-card border rounded-xl p-4 sm:p-6">
-        <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
           <Zap className="h-4 w-4 text-primary" />
           深度分析
         </h3>
         {signal.deep_analysis ? (
-          <p className="text-[13px] sm:text-sm text-foreground leading-relaxed whitespace-pre-line">
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
             {signal.deep_analysis}
           </p>
         ) : (
-          <p className="text-[11px] sm:text-xs text-muted-foreground italic">
+          <p className="text-xs text-muted-foreground italic">
             深度分析生成中，请稍后刷新页面…
           </p>
         )}
@@ -194,15 +194,15 @@ export default function SignalDetail({
       {/* ── Industry Backtest ── */}
       {backtest && backtest.length > 0 && (
         <div className="bg-card border rounded-xl p-4 sm:p-6">
-          <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
             <TrendingUp className="h-4 w-4 text-primary" />
             行业回测
           </h3>
-          <p className="text-[10px] sm:text-[11px] text-muted-foreground mb-3">
+          <p className="text-xs text-muted-foreground mb-3">
             信号出现后行业指数平均涨跌幅 · 过去 90 天 · 胜率 = T+1 上涨样本占比
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-[11px] sm:text-xs">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="text-muted-foreground border-b">
                   <th className="text-left py-2 pr-4 font-medium">行业</th>
@@ -226,10 +226,10 @@ export default function SignalDetail({
                           <span
                             className={
                               tier === "sufficient"
-                                ? "text-[9px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                                ? "text-xs px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
                                 : tier === "reference"
-                                  ? "text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                                  : "text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground"
+                                  ? "text-xs px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                                  : "text-xs px-1 py-0.5 rounded bg-muted text-muted-foreground"
                             }
                           >
                             {TIER_LABELS[tier]}
@@ -239,7 +239,7 @@ export default function SignalDetail({
                       <td className="py-2 px-2 text-right tabular-nums">
                         {row.samples}
                         {!showNumbers && (
-                          <span className="ml-1 text-[10px] text-muted-foreground">
+                          <span className="ml-1 text-xs text-muted-foreground">
                             /10
                           </span>
                         )}
@@ -271,16 +271,16 @@ export default function SignalDetail({
       {/* ── Event Thread Context ── */}
       {signal.event_thread && (
         <div className="bg-card border rounded-xl p-4 sm:p-6">
-          <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
             <AlertCircle className="h-4 w-4 text-primary" />
             所属事件线索
           </h3>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[13px] sm:text-sm font-medium text-foreground">
+            <span className="text-sm font-medium text-foreground">
               {signal.event_thread.title}
             </span>
             <span
-              className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
+              className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                 STAGE_COLORS[signal.event_thread.stage] || STAGE_COLORS.early
               }`}
             >
@@ -293,7 +293,7 @@ export default function SignalDetail({
           <div className="mt-3">
             <Link
               href={`/thread/${signal.event_thread.id}`}
-              className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1"
+              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
             >
               查看完整线索 <ExternalLink className="h-3 w-3" />
             </Link>
@@ -303,11 +303,11 @@ export default function SignalDetail({
 
       {/* ── Original News ── */}
       <div className="bg-card border rounded-xl p-4 sm:p-6">
-        <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+        <h3 className="text-sm font-semibold text-foreground mb-3">
           原始快讯
         </h3>
         <div className="flex items-center justify-between flex-wrap gap-1.5 mb-2">
-          <p className="text-[11px] sm:text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             来源：{signal.source || "未知"} · {formatDate(signal.published_at)}
           </p>
           {signal.docurl && (
@@ -315,13 +315,13 @@ export default function SignalDetail({
               href={signal.docurl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               查看原文 <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
-        <div className="text-[13px] sm:text-sm text-foreground leading-relaxed bg-accent/30 rounded-lg p-3">
+        <div className="text-sm text-foreground leading-relaxed bg-accent/30 rounded-lg p-3">
           {signal.content || "原始快讯暂不可用"}
         </div>
       </div>

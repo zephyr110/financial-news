@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import SiteHeader from "../../components/SiteHeader";
+import AppShell from "../../components/app-shell";
 import SignalDetailComponent from "../../components/SignalDetail";
 import ErrorBanner from "../../components/ErrorBanner";
 import { getSignalById, getHighScoreSignals, getRelatedSignals, getBacktestByIndustry } from "../../lib/db";
@@ -52,15 +52,14 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
     return (
       <>
         <Head><title>加载中… — 财经信号</title></Head>
-        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-        <div className="min-h-screen bg-background">
+        <AppShell title="信号详情">
           <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
             <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">加载中…</span>
             </div>
           </div>
-        </div>
+        </AppShell>
       </>
     );
   }
@@ -70,19 +69,18 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
     return (
       <>
         <Head><title>信号详情 — 财经信号</title></Head>
-        <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-        <div className="min-h-screen bg-background">
+        <AppShell title="信号详情">
           <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
             <Link
               href="/analysis"
-              className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               返回分析面板
             </Link>
             <ErrorBanner message={error} />
           </div>
-        </div>
+        </AppShell>
       </>
     );
   }
@@ -108,14 +106,12 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
         />
       </Head>
 
-      <SiteHeader onRefresh={() => {}} refreshing={false} lastUpdated={null} />
-
-      <div className="min-h-screen bg-background">
+      <AppShell title="信号详情">
         <div className="mx-auto max-w-[720px] lg:max-w-[960px] px-4 sm:px-6 pb-12 pt-8">
           {/* Back link */}
           <Link
             href="/analysis"
-            className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             返回分析面板
@@ -133,7 +129,7 @@ export default function SignalPage({ data: ssgData, error: ssgError }) {
             </div>
           )}
         </div>
-      </div>
+      </AppShell>
     </>
   );
 }

@@ -26,10 +26,10 @@ const confidenceIcons = {
 export default function EventThreadList({ threads }) {
   return (
     <div className="bg-card border rounded-xl p-4 sm:p-5 mb-6">
-      <h3 className="text-xs sm:text-sm font-medium text-foreground mb-3">
+      <h3 className="text-sm font-semibold text-foreground mb-3">
         事件线索
       </h3>
-      <p className="text-[10px] text-muted-foreground mb-3">基于近24小时高信号新闻生成</p>
+      <p className="text-xs text-muted-foreground mb-3">基于近24小时高信号新闻生成</p>
       {!threads || threads.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-8">
           暂无事件线索，数据分析完成后自动生成
@@ -61,23 +61,23 @@ function EventThreadCard({ thread }) {
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] sm:text-sm font-medium text-foreground">
+            <span className="text-sm font-medium text-foreground">
               {thread.title}
             </span>
             <span className={cn(
-              "text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full font-medium",
+              "text-xs px-1.5 py-0.5 rounded-full font-medium",
               stageColors[thread.stage] || stageColors.early
             )}>
               {stageLabels[thread.stage] || thread.stage}
             </span>
           </div>
           {!open && (
-            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
               {thread.narrative}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground shrink-0">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
           <span>{thread.news_ids?.length || 0} 条</span>
           <ChevronDown
             className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
@@ -87,21 +87,22 @@ function EventThreadCard({ thread }) {
 
       <div
         className={cn(
-          "overflow-hidden transition-all duration-300 ease-in-out",
-          open ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+          "grid transition-all duration-300 ease-in-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
+        <div className="overflow-hidden min-h-0">
         <div className="px-3 pb-3 border-t pt-2 space-y-2">
-          <p className="text-[12px] sm:text-[13px] text-foreground leading-relaxed">
+          <p className="text-sm text-foreground leading-relaxed">
             {thread.narrative}
           </p>
           {thread.industries?.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] text-muted-foreground">涉及行业：</span>
+              <span className="text-xs text-muted-foreground">涉及行业：</span>
               {thread.industries.map((ind: string) => (
                 <span
                   key={ind}
-                  className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground"
+                  className="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground"
                 >
                   {ind}
                 </span>
@@ -110,10 +111,10 @@ function EventThreadCard({ thread }) {
           )}
           {thread.watch_points?.length > 0 && (
             <div>
-              <span className="text-[10px] text-muted-foreground">后续关注：</span>
+              <span className="text-xs text-muted-foreground">后续关注：</span>
               <ul className="mt-1 space-y-0.5">
                 {thread.watch_points.map((p: string, i: number) => (
-                  <li key={i} className="text-[11px] sm:text-xs text-muted-foreground flex items-start gap-1">
+                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1">
                     <span className="text-primary mt-0.5">•</span>
                     {p}
                   </li>
@@ -125,13 +126,14 @@ function EventThreadCard({ thread }) {
             <div className="pt-1.5">
               <Link
                 href={`/thread/${thread.id}`}
-                className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1"
+                className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 onClick={() => track('thread_expand', { id: thread.id })}
               >
                 查看完整线索 <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

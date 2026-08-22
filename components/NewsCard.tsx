@@ -31,18 +31,19 @@ export default function NewsCard({ item, index }: NewsCardProps) {
   return (
     <Card
       className={cn(
-        "group transition-all duration-200 hover:border-primary/60 hover:shadow-sm",
+        // 用户要求：卡片 hover 无动画/无边框变色/无阴影（group 仅用于「阅读原文」链接 hover 显示）
+        "group",
         isAnimated && "news-card",
         analysis && !hasSignal && "opacity-80"
       )}
       style={isAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
     >
       <CardContent className="p-4 sm:p-5 flex gap-3 sm:gap-4">
-        <span className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground tabular-nums shrink-0 mt-[5px] font-medium">
+        <span className="text-xs lg:text-sm text-muted-foreground tabular-nums shrink-0 mt-[5px] font-medium">
           {formatTime(time)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] sm:text-sm lg:text-base leading-loose text-foreground">
+          <p className="text-sm lg:text-base leading-loose text-foreground">
             {text}
           </p>
           {/* 原文链接：hover 卡片时显现，保持布局稳定 */}
@@ -53,13 +54,13 @@ export default function NewsCard({ item, index }: NewsCardProps) {
                   href={item.docurl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] sm:text-xs text-primary no-underline hover:underline"
+                  className="text-xs text-primary no-underline hover:underline"
                 >
                   阅读原文
                 </a>
               )}
               {analysis && (
-                <span className="text-[11px] text-muted-foreground/70">
+                <span className="text-xs text-muted-foreground">
                   {analysis.category || ""}
                 </span>
               )}
@@ -74,10 +75,10 @@ export default function NewsCard({ item, index }: NewsCardProps) {
               <SignalBadge score={analysis.signal_score} size="sm" clickable />
             </Link>
           ) : analysis ? (
-            /* Analyzed but low score — subtle hollow circle (cards are dimmed via opacity) */
+            /* Analyzed but low score — hollow circle showing the score (cards are dimmed via opacity) */
             <span
-              className="w-4 h-4 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-[8px] text-muted-foreground/40"
-              title="低分信号"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-xs font-medium text-muted-foreground"
+              title={`低分信号（${analysis.signal_score} 分）`}
             >
               {analysis.signal_score}
             </span>

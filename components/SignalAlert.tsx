@@ -72,10 +72,12 @@ export default function SignalAlert({ items }: { items: any[] }) {
   const denied = permission === "denied";
   const active = enabled && permission === "granted";
 
+  // 无包裹容器：按钮由页头操作区（与关注行业选择器并排）布局；
+  // denied 横幅 w-full 在 flex-wrap 页头中自动换行为整行警告条。
   return (
-    <div className="mx-auto max-w-[720px] lg:max-w-[960px] xl:max-w-[1200px] px-4 sm:px-6">
+    <>
       {denied ? (
-        <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-[11px] sm:text-xs text-destructive mb-1">
+        <div className="flex w-full items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
           <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
           浏览器已阻止通知权限，请在站点设置中允许后重试
         </div>
@@ -84,8 +86,10 @@ export default function SignalAlert({ items }: { items: any[] }) {
           type="button"
           onClick={handleToggle}
           aria-pressed={active}
+          title={active ? "点击关闭重要信号提醒" : "开启后，关注行业的重要信号将通过浏览器通知提醒"}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] sm:text-xs font-medium transition-colors mb-1",
+            // 与 IndustrySelector 同款胶囊按钮
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors",
             active
               ? "border-primary/40 bg-primary/10 text-primary"
               : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40"
@@ -95,7 +99,7 @@ export default function SignalAlert({ items }: { items: any[] }) {
           {active ? "重要信号提醒已开启" : "开启重要信号提醒"}
         </button>
       )}
-    </div>
+    </>
   );
 }
 

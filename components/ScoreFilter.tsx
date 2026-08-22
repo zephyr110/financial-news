@@ -13,7 +13,7 @@ function scoreBadgeStyle(score) {
 export default function ScoreFilter({ value, onChange }) {
   return (
     <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-      <span className="text-[11px] sm:text-xs text-muted-foreground shrink-0">
+      <span className="text-xs text-muted-foreground shrink-0">
         按分数：
       </span>
       {SCORES.map((score) => {
@@ -24,7 +24,7 @@ export default function ScoreFilter({ value, onChange }) {
             type="button"
             onClick={() => onChange(active ? null : score)}
             className={cn(
-              "inline-flex items-center gap-1 px-2.5 h-8 rounded-full text-[11px] sm:text-xs font-medium transition-all border-2",
+              "inline-flex items-center gap-1 px-2.5 h-8 rounded-full text-xs font-medium transition-all border-2",
               active
                 ? "border-primary bg-primary/10 shadow-sm"
                 : "border-border bg-card hover:border-primary/40 hover:bg-accent"
