@@ -33,7 +33,7 @@ export default function ThemeToggle({ className }: ThemeToggleProps) {
 
   const label =
     theme === "system"
-      ? "跟随系统主题"
+      ? "系统主题"
       : resolvedTheme === "dark"
         ? "切换为浅色"
         : "切换为深色";

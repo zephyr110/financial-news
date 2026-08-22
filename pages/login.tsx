@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { Loader2, Lock, User, AlertCircle } from "lucide-react";
+import { Loader2, Lock, UserRound, AlertCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import BrandLogo from "../components/BrandLogo";
@@ -83,7 +83,7 @@ export default function LoginPage() {
                 账号
               </label>
               <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="username"
                   value={username}

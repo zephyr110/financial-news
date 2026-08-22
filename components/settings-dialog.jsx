@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Info, Loader2, RotateCcw, Save } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { CheckCircle2, Clock, Cpu, Database, Info, Loader2, RotateCcw, Save, UserRound, XIcon } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -14,15 +13,23 @@ import { cn } from "@/lib/utils";
  * - 数据源：TURSO_DATABASE_URL / TURSO_AUTH_TOKEN（需重启应用生效）
  * - 定时任务：CRON_SECRET（30s 缓存热生效）
  * - 账号：修改登录名 / 密码（需当前密码）
+ * 布局参考 zlog settings-dialog：左侧导航栏 + 右侧内容区（移动端导航变顶部横排）。
  * 文本类字段留空保存 = 清除该项（恢复环境变量默认）；密钥类留空 = 保持不变。
  */
+const PANELS = [
+  { id: "model", label: "模型", icon: Cpu, title: "模型配置", desc: "LLM 模型 / 接口地址 / API Key（保存后约 30 秒热生效，无需重启）" },
+  { id: "turso", label: "数据源", icon: Database, title: "数据源配置", desc: "远端 Turso 数据库（改动需重启应用后生效）" },
+  { id: "cron", label: "定时任务", icon: Clock, title: "定时任务", desc: "Vercel Cron / QStash 鉴权密钥（保存后约 30 秒热生效）" },
+  { id: "account", label: "账号", icon: UserRound, title: "账号设置", desc: "修改登录名与密码（需验证当前密码）" },
+];
+
 export default function SettingsDialog({ open, onOpenChange, username, onAccountChanged }) {
   // 表单状态（初始值在 open 时从 GET /api/settings 拉取）
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [okMsg, setOkMsg] = useState(null);
-  const [tab, setTab] = useState("model");
+  const [panel, setPanel] = useState("model");
 
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -67,7 +74,6 @@ export default function SettingsDialog({ open, onOpenChange, username, onAccount
         setModel(d.llm?.model ?? "");
         setBaseUrl(d.llm?.baseUrl ?? "");
         setApiKeySet(Boolean(d.llm?.apiKeySet));
-        setTursoUrl(d.turso?.urlSet ? "" : "");
         setTursoUrlSet(Boolean(d.turso?.urlSet));
         setTursoTokenSet(Boolean(d.turso?.tokenSet));
         setCronSecretSet(Boolean(d.cronSecretSet));
@@ -185,201 +191,240 @@ export default function SettingsDialog({ open, onOpenChange, username, onAccount
     </p>
   );
 
+  const activePanel = PANELS.find((p) => p.id === panel) ?? PANELS[0];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>设置</DialogTitle>
-          <DialogDescription>模型 / 数据源 / 定时任务 / 账号配置</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[min(calc(100dvh-2rem),48rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl sm:flex-row"
+      >
+        {/* 左侧导航（移动端为顶部横排） */}
+        <nav
+          className="flex shrink-0 flex-row gap-0.5 overflow-x-auto border-b bg-muted/40 p-2 sm:w-44 sm:flex-col sm:overflow-visible sm:border-r sm:border-b-0 sm:px-3 sm:pt-4 sm:pb-3"
+          aria-label="设置"
+        >
+          {PANELS.map((item) => {
+            const Icon = item.icon;
+            const active = panel === item.id;
+            return (
+              <Button
+                key={item.id}
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-current={active ? "page" : undefined}
+                onClick={() => setPanel(item.id)}
+                className={cn(
+                  "h-8 shrink-0 justify-start px-2.5 text-sm sm:w-full",
+                  active
+                    ? "bg-accent font-medium text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                <Icon className={cn("size-4", !active && "opacity-70")} />
+                {item.label}
+              </Button>
+            );
+          })}
+        </nav>
 
-        {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</div>
-        )}
-        {okMsg && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="size-3.5 shrink-0" />
-            {okMsg}
+        {/* 右侧内容区 */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <DialogHeader className="relative shrink-0 gap-1 border-b px-6 py-4 pr-12">
+            <DialogTitle>{activePanel.title}</DialogTitle>
+            <DialogDescription>{activePanel.desc}</DialogDescription>
+            <DialogClose
+              render={
+                <Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" aria-label="关闭" />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5 [scrollbar-gutter:stable]">
+            {error && (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</div>
+            )}
+            {okMsg && (
+              <div className="mb-4 flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                {okMsg}
+              </div>
+            )}
+
+            {/* ── 模型 ── */}
+            <div hidden={panel !== "model"} className="max-w-md space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">模型 (LLM_MODEL)</label>
+                <Input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="留空使用环境变量（默认 deepseek-v4-flash）"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">接口地址 (LLM_BASE_URL)</label>
+                <Input
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="留空使用环境变量（默认 https://api.deepseek.com/v1）"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">API Key (LLM_API_KEY)</label>
+                <div className="flex gap-2">
+                  <Input
+                    {...secretInputProps("llmApiKey", apiKey, setApiKey, apiKeySet)}
+                    className="flex-1"
+                    disabled={!loaded}
+                  />
+                  {apiKeySet && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => clearKey("llmApiKey")} title="清除已保存的 Key">
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {hint("模型/接口/Key 保存在应用内（app_settings 表），保存后约 30 秒内热生效，无需重启。")}
+              <div className="flex justify-end pt-1">
+                <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
+
+            {/* ── 数据源 ── */}
+            <div hidden={panel !== "turso"} className="max-w-md space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">远端数据库 URL (TURSO_DATABASE_URL)</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={tursoUrl}
+                    onChange={(e) => {
+                      setTursoUrl(e.target.value);
+                      if (e.target.value) restoreKey("tursoUrl");
+                    }}
+                    placeholder={tursoUrlSet ? "已设置，留空保持不变" : "未设置（可选）"}
+                    disabled={!loaded}
+                    className="flex-1"
+                  />
+                  {tursoUrlSet && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => clearKey("tursoUrl")} title="清除">
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">鉴权 Token (TURSO_AUTH_TOKEN)</label>
+                <div className="flex gap-2">
+                  <Input
+                    {...secretInputProps("tursoToken", tursoToken, setTursoToken, tursoTokenSet)}
+                    className="flex-1"
+                    disabled={!loaded}
+                  />
+                  {tursoTokenSet && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => clearKey("tursoToken")} title="清除">
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {hint("留空时使用本地文件数据库（news.db）。配置了 Turso 后数据存远端；改动需重启应用后生效。")}
+              <div className="flex justify-end pt-1">
+                <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
+
+            {/* ── 定时任务 ── */}
+            <div hidden={panel !== "cron"} className="max-w-md space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">CRON_SECRET（Vercel Cron / QStash 鉴权）</label>
+                <div className="flex gap-2">
+                  <Input
+                    {...secretInputProps("cronSecret", cronSecret, setCronSecret, cronSecretSet)}
+                    className="flex-1"
+                    disabled={!loaded}
+                  />
+                  {cronSecretSet && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => clearKey("cronSecret")} title="清除">
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {hint("用于保护 /api/cron/* 定时任务接口（Bearer 或 ?token=）。保存在应用内，约 30 秒内热生效。")}
+              <div className="flex justify-end pt-1">
+                <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
+
+            {/* ── 账号 ── */}
+            <div hidden={panel !== "account"} className="max-w-md space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">登录名</label>
+                <Input
+                  value={accUsername}
+                  onChange={(e) => setAccUsername(e.target.value)}
+                  placeholder="当前登录名"
+                  autoComplete="off"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">当前密码（必填验证）</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="输入当前密码以确认修改"
+                  autoComplete="current-password"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">新密码（可选）</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="至少 6 位；留空则不修改密码"
+                  autoComplete="new-password"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">确认新密码</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="再次输入新密码"
+                  autoComplete="new-password"
+                  disabled={!loaded}
+                />
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button size="sm" onClick={saveAccount} disabled={saving || !loaded || !currentPassword}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
           </div>
-        )}
-
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full">
-            <TabsTrigger value="model" className="flex-1">模型</TabsTrigger>
-            <TabsTrigger value="turso" className="flex-1">数据源</TabsTrigger>
-            <TabsTrigger value="cron" className="flex-1">定时任务</TabsTrigger>
-            <TabsTrigger value="account" className="flex-1">账号</TabsTrigger>
-          </TabsList>
-
-          {/* ── 模型 ── */}
-          <TabsContent value="model" className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">模型 (LLM_MODEL)</label>
-              <Input
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="留空使用环境变量（默认 deepseek-v4-flash）"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">接口地址 (LLM_BASE_URL)</label>
-              <Input
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="留空使用环境变量（默认 https://api.deepseek.com/v1）"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">API Key (LLM_API_KEY)</label>
-              <div className="flex gap-2">
-                <Input
-                  {...secretInputProps("llmApiKey", apiKey, setApiKey, apiKeySet)}
-                  className="flex-1"
-                  disabled={!loaded}
-                />
-                {apiKeySet && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => clearKey("llmApiKey")} title="清除已保存的 Key">
-                    <RotateCcw className="size-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            {hint("模型/接口/Key 保存在应用内（app_settings 表），保存后约 30 秒内热生效，无需重启。")}
-            <div className="flex justify-end pt-1">
-              <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                保存
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* ── 数据源 ── */}
-          <TabsContent value="turso" className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">远端数据库 URL (TURSO_DATABASE_URL)</label>
-              <div className="flex gap-2">
-                <Input
-                  value={tursoUrl}
-                  onChange={(e) => {
-                    setTursoUrl(e.target.value);
-                    if (e.target.value) restoreKey("tursoUrl");
-                  }}
-                  placeholder={tursoUrlSet ? "已设置，留空保持不变" : "未设置（可选）"}
-                  disabled={!loaded}
-                  className="flex-1"
-                />
-                {tursoUrlSet && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => clearKey("tursoUrl")} title="清除">
-                    <RotateCcw className="size-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">鉴权 Token (TURSO_AUTH_TOKEN)</label>
-              <div className="flex gap-2">
-                <Input
-                  {...secretInputProps("tursoToken", tursoToken, setTursoToken, tursoTokenSet)}
-                  className="flex-1"
-                  disabled={!loaded}
-                />
-                {tursoTokenSet && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => clearKey("tursoToken")} title="清除">
-                    <RotateCcw className="size-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            {hint("留空时使用本地文件数据库（news.db）。配置了 Turso 后数据存远端；改动需重启应用后生效。")}
-            <div className="flex justify-end pt-1">
-              <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                保存
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* ── 定时任务 ── */}
-          <TabsContent value="cron" className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">CRON_SECRET（Vercel Cron / QStash 鉴权）</label>
-              <div className="flex gap-2">
-                <Input
-                  {...secretInputProps("cronSecret", cronSecret, setCronSecret, cronSecretSet)}
-                  className="flex-1"
-                  disabled={!loaded}
-                />
-                {cronSecretSet && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => clearKey("cronSecret")} title="清除">
-                    <RotateCcw className="size-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            {hint("用于保护 /api/cron/* 定时任务接口（Bearer 或 ?token=）。保存在应用内，约 30 秒内热生效。")}
-            <div className="flex justify-end pt-1">
-              <Button size="sm" onClick={saveSettings} disabled={saving || !loaded}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                保存
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* ── 账号 ── */}
-          <TabsContent value="account" className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">登录名</label>
-              <Input
-                value={accUsername}
-                onChange={(e) => setAccUsername(e.target.value)}
-                placeholder="当前登录名"
-                autoComplete="off"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">当前密码（必填验证）</label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="输入当前密码以确认修改"
-                autoComplete="current-password"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">新密码（可选）</label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="至少 6 位；留空则不修改密码"
-                autoComplete="new-password"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">确认新密码</label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="再次输入新密码"
-                autoComplete="new-password"
-                disabled={!loaded}
-              />
-            </div>
-            <div className="flex justify-end pt-1">
-              <Button size="sm" onClick={saveAccount} disabled={saving || !loaded || !currentPassword}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                保存
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
