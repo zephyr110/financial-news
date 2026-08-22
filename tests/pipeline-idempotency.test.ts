@@ -151,18 +151,26 @@ describe('批处理游标（P1.3）', () => {
     expect(await getPipelineCursor('analyze')).toBe(43);
   });
 
-  it('getUnanalyzedNews 游标过滤 + FIFO（id 升序）', async () => {
+  it('getUnanalyzedNews 按发布时间倒序（新新闻优先），90 天前旧数据被过滤', async () => {
     const db = await getDb();
+    const now = Date.now();
+    // 4 条未分析新闻，published_at 递增（9600 最旧 → 9603 最新）
     for (let i = 0; i < 4; i++) {
       await db.execute({
         sql: 'INSERT OR IGNORE INTO news_archive (id, source, source_id, title, content, published_at) VALUES (?, ?, ?, ?, ?, ?)',
-        args: [9200 + i, 'test', `cur-${i}`, `t${i}`, `c${i}`, new Date().toISOString()],
+        args: [9600 + i, 'test', `new-${i}`, `t${i}`, `c${i}`, new Date(now - (3 - i) * 60_000).toISOString()],
       });
     }
-    const rows = await getUnanalyzedNews(10, 9201);
-    expect(rows.length).toBe(2);
-    expect(Number(rows[0].id)).toBe(9202);
-    expect(Number(rows[1].id)).toBe(9203);
+    // 95 天前的旧新闻应被 90 天窗口过滤
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO news_archive (id, source, source_id, title, content, published_at) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [9604, 'test', 'old', 'old', 'old', new Date(now - 95 * 24 * 3600_000).toISOString()],
+    });
+    const rows = await getUnanalyzedNews(50);
+    // 同 DB 可能有其他测试插入的未分析新闻，只断言本用例的 9600-9604 子集
+    const mine = rows.filter((r) => Number(r.id) >= 9600 && Number(r.id) <= 9604);
+    expect(mine.map((r) => Number(r.id))).toEqual([9603, 9602, 9601, 9600]); // 最新优先
+    expect(mine.some((r) => Number(r.id) === 9604)).toBe(false); // 90 天前被过滤
   });
 
   it('resetStuckCursor：游标前残留超阈值则重置为 0', async () => {

@@ -112,13 +112,11 @@ export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
   batchSize = parseInt(process.env.PIPELINE_BATCH_SIZE || '', 10) || batchSize;
   maxBatches = parseInt(process.env.PIPELINE_MAX_BATCHES || '', 10) || maxBatches;
 
-  // 游标：FIFO 续跑；游标前残留（失败/跳过）超阈值时自愈重置
-  const cursor0 = await getPipelineCursor('analyze');
-  const cursor = await resetStuckCursor('analyze', cursor0);
-  const unanalyzed = await getUnanalyzedNews(batchSize * maxBatches, cursor);
+  // 取数按发布时间倒序（新新闻优先），LEFT JOIN 幂等，无需 id 游标
+  const unanalyzed = await getUnanalyzedNews(batchSize * maxBatches);
   if (unanalyzed.length === 0) {
     console.log('[analyze] No unanalyzed news.');
-    return { analyzed: 0, errors: 0, hasMore: false, cursor };
+    return { analyzed: 0, errors: 0, hasMore: false, cursor: 0 };
   }
 
   console.log(`[analyze] Provider: ${describeProvider()}`);
@@ -183,13 +181,12 @@ export async function analyzeUnanalyzedNews(batchSize = 5, maxBatches = 2) {
 
   console.log(`[analyze] Done: ${analyzed} analyzed, ${errors} errors`);
 
-  // 游标推进到本批最后一条被尝试的 id（跳过/失败条目由 resetStuckCursor 兜底重试）
+  // 记录本批最大 id 供观测（DESC 取数下无严格游标语义，仅留痕）
   const lastId = unanalyzed[unanalyzed.length - 1].id;
-  const nextCursor = Math.max(cursor, Number(lastId) || 0);
-  await setPipelineCursor('analyze', nextCursor);
+  await setPipelineCursor('analyze', Number(lastId) || 0);
   // 拉满窗口说明可能还有更多（hasMore → 调度层可立即再触发）
   const hasMore = unanalyzed.length === batchSize * maxBatches;
-  return { analyzed, errors, hasMore, cursor: nextCursor };
+  return { analyzed, errors, hasMore, cursor: Number(lastId) || 0 };
 }
 
 // ============================================================
