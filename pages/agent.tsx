@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { MessageSquareText, Send, Wrench, Loader2, Bot, CheckCircle2, XCircle, ChevronRight, Copy, Check, Share2 } from "lucide-react";
 import AppShell from "../components/app-shell";
 import SessionSidebarGroup from "../components/SessionSidebarGroup";
 import { Button } from "../components/ui/button";
@@ -57,7 +59,10 @@ function historyToChatItems(rows: any[]): ChatItem[] {
       continue;
     }
     const item: ChatItem = { id: `hist-${r.id}`, role: r.role, content: r.content };
-    if (r.meta?.toolCall) item.toolCall = r.meta.toolCall;
+    if (r.meta?.toolCall) {
+      // 历史工具调用必然已执行完毕；旧数据 meta 无 status → 兜底 done，避免永久显示"执行中"
+      item.toolCall = { ...r.meta.toolCall, status: r.meta.toolCall.status || "done" };
+    }
     out.push(item);
   }
   return out;
@@ -79,8 +84,33 @@ export default function AgentPage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [query, setQuery] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 复制回复文本；短时显示"已复制"反馈
+  const copyMessage = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId(null), 1600);
+    } catch {
+      // 剪贴板不可用（非安全上下文等）时静默
+    }
+  }, []);
+
+  // 分享回复：Web Share API 优先，不支持时降级为复制
+  const shareMessage = useCallback(async (text: string) => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch {
+        // 用户取消分享等，无需提示
+      }
+    }
+    await copyMessage("share", text);
+  }, [copyMessage]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -465,7 +495,7 @@ export default function AgentPage() {
                             )}
                             <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-open/tool:rotate-90" />
                           </summary>
-                          <div className="grid grid-rows-[0fr] transition-all duration-200 group-open/tool:grid-rows-[1fr]">
+                          <div className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-300 ease-in-out group-open/tool:grid-rows-[1fr] group-open/tool:opacity-100">
                             <div className="overflow-hidden">
                               <pre className="mx-3 mb-2 overflow-x-auto rounded-md bg-background px-2.5 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
                                 {JSON.stringify(m.toolCall.args, null, 2)}
@@ -500,14 +530,68 @@ export default function AgentPage() {
                     )}
                     <div
                       className={cn(
-                        "max-w-[85%] whitespace-pre-wrap text-sm",
+                        "max-w-[85%] text-sm",
                         isUser
                           ? // 用户气泡：primary 蓝（明暗主题自适应）+ 右上角直角，其余三角保持圆角
                             "leading-relaxed rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-none bg-primary px-4 py-2.5 text-primary-foreground shadow-sm"
                           : "leading-7 text-foreground"
                       )}
                     >
-                      {m.content}
+                      {isUser ? (
+                        <div className="whitespace-pre-wrap">{m.content}</div>
+                      ) : (
+                        <>
+                          <div className="markdown-body">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                // 链接新开页，避免打断对话
+                                a: ({ node: _node, ...props }) => (
+                                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                                ),
+                              }}
+                            >
+                              {m.content}
+                            </ReactMarkdown>
+                          </div>
+                          {/* 操作行：复制 + 分享（靠左） */}
+                          <div className="mt-2 flex items-center justify-start gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => void copyMessage(m.id, m.content)}
+                              className={cn(
+                                "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground",
+                                "transition-colors hover:bg-accent hover:text-foreground"
+                              )}
+                              aria-label="复制回复"
+                            >
+                              {copiedId === m.id ? (
+                                <>
+                                  <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  已复制
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-3.5" />
+                                  复制
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void shareMessage(m.content)}
+                              className={cn(
+                                "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground",
+                                "transition-colors hover:bg-accent hover:text-foreground"
+                              )}
+                              aria-label="分享回复"
+                            >
+                              <Share2 className="size-3.5" />
+                              分享
+                            </button>
+                          </div>
+                        </>
+                      )}
                       {m.toolLog && m.toolLog.length > 0 && (
                         <div className="mt-2.5 pt-2.5 border-t border-foreground/10 space-y-1.5">
                           {m.toolLog.map((t, i) => (

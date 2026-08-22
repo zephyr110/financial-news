@@ -158,7 +158,8 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<AgentTurnResul
       });
       emit({ type: 'tool_end', tool: tool.name, ok, summary });
 
-      const meta = { toolCall: { name: tool.name, args: toolCall.args || {} } };
+      // 持久化工具执行终态：历史会话重放时前端据此渲染"完成/失败"，而非永久"执行中"
+      const meta = { toolCall: { name: tool.name, args: toolCall.args || {}, status: ok ? 'done' : 'error' } };
       // 持久化模型的真实输出（JSON 工具调用），而非占位符——跨轮次重放时模型
       // 仍能看到自己此前的调用内容（模型可见即记录）
       await appendAgentMessage(sessionId, 'assistant', contentText, meta);
